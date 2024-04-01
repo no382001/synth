@@ -1,1 +1,1 @@
-valgrind --leak-check=full --show-leak-kinds=all ./synth res/Sinewave.mp3 > logs/valgrind_`git rev-parse HEAD`.log
+valgrind --leak-check=full --show-leak-kinds=all ./synth res/Sinewave.mp3 2&> logs/valgrind_`git rev-parse HEAD`.log
