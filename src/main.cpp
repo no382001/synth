@@ -52,8 +52,8 @@ void ringbuffer_push_back(RingBuffer* buf, float* data, size_t n_elements, size_
     
 }
 void fft(float *data, size_t stride, std::complex<float>* out, size_t n) {
-    if(n<=1) {
-        out[0]=std::complex<float>{data[0],0}; // base case
+    if(n <= 1) {
+        out[0] = std::complex<float>{data[0], 0}; // base case
         return;
     }
 
@@ -101,7 +101,6 @@ void stream_callback(void *bufferData, unsigned int frames) {
     frames_g = frames;
 }
 
-#define VISUAL_NUM 8
 
 int main(int argc, char **argv)
 {
@@ -136,7 +135,7 @@ int main(int argc, char **argv)
     AttachAudioStreamProcessor(music.stream, stream_callback);
     PlayMusicStream(music);
     
-    InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "");
+    InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "synth");
     SetWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
     SetTargetFPS(60);
     
@@ -193,7 +192,18 @@ int main(int argc, char **argv)
             heightrel = (height / (float)VISUAL_HEIGHT) * 0.8f;
             c.r = (unsigned char)(255 * heightrel);
             c.g = (unsigned char)(200 * (1 - heightrel));
-            DrawRectangle((int)i * RECT_W, VISUAL_HEIGHT - height, RECT_W, height, c);
+            DrawRectangle((int)i * RECT_W +100, VISUAL_HEIGHT - height, RECT_W, height, c);
+        }
+
+        auto curr = buf.base;
+        auto i = 1;
+        while (i < buf.n_elements) {
+            int x1 = (800 * (i - 1)) / buf.n_elements;
+            int x2 = (800 * i) / buf.n_elements;
+            int y1 = 400 / 2 + (int)(curr[(i - 1 + buf.n_elements) % buf.n_elements] * (800 / 4));
+            int y2 = 400 / 2 + (int)(curr[i] * (800 / 4));
+            DrawLine(x1, y1, x2, y2, BLACK);
+            i++;
         }
 
         EndDrawing();
@@ -208,3 +218,6 @@ int main(int argc, char **argv)
     free(mags);
     CloseWindow();
 }
+
+// other ringbuffer for wave viz (ez)
+// put the mutex back
