@@ -2,6 +2,8 @@
 cmake_minimum_required(VERSION 3.5)
 project(synth)
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_BUILD_TYPE "Debug")
+
 include_directories(
     h
     src/visuals/h)

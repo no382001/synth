@@ -148,7 +148,7 @@ int main(int argc, char **argv)
     
     Color c = {0,0,0,255};
     
-    while (!WindowShouldClose()) {
+    while (!WindowShouldClose() && IsMusicStreamPlaying(music)) {
 
         UpdateMusicStream(music);
         ClearBackground(GRAY);

@@ -14,3 +14,4 @@ synth
 CPackSourceConfig.cmake
 CPackConfig.cmake
 .vscode
+*.a
