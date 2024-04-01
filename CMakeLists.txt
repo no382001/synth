@@ -1,8 +1,10 @@
 
 cmake_minimum_required(VERSION 3.5)
 project(synth)
-
-include_directories(h)
+set(CMAKE_CXX_STANDARD 17)
+include_directories(
+    h
+    src/visuals/h)
 
 # Adding Raylib
 include(FetchContent)
@@ -19,9 +21,12 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(raylib)
 
+add_subdirectory(src/visuals)
 
-# Declaring our executable
 add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE src/main.cpp)
 target_include_directories(${PROJECT_NAME} PRIVATE h)
-target_link_libraries(${PROJECT_NAME} PRIVATE raylib)
+target_link_libraries(
+    ${PROJECT_NAME} PRIVATE
+    raylib
+    visuals)

@@ -13,3 +13,4 @@ _deps
 synth
 CPackSourceConfig.cmake
 CPackConfig.cmake
+.vscode
