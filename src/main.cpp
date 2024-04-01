@@ -18,6 +18,9 @@
 #define WINDOW_HEIGHT 500
 #define WINDOW_WIDTH 700
 
+#define VISUAL_HEIGHT 200
+#define VISUAL_WIDTH 200
+
 typedef struct {
     size_t size_bytes;
     size_t n_elements;
@@ -80,26 +83,25 @@ RingBuffer buf{};
 int memchanged = 0;
 unsigned int channels;
 unsigned int samplesize;
-std::mutex lock;
+//std::mutex lock;
 unsigned int frameslast = 0;
 void *buffer_g;
 unsigned int frames_g;
 float notes[] = {0, 80, 120, 180, 240, 320, 520, 820, 1100, 1350, 1600, 2100, 2600, 3200, 3600, 4000, 4600, 5200, 5750, 6500, 8000, 11000, 20000};
 #define NOTES (sizeof(notes) / sizeof(float))
-#define RECT_W (WINDOW_WIDTH / (NOTES-1))
+#define RECT_W (VISUAL_WIDTH / (NOTES-1))
 
 void stream_callback(void *bufferData, unsigned int frames) {
     /*if (frames != frameslast)
         printf("%u frames\n", frames);*/
     
     frameslast = frames;
-    lock.lock(); // im not sure if we need the locks, it should be thread safe right?
     memchanged = 1;
     buffer_g = bufferData;
     frames_g = frames;
-    lock.unlock();
 }
 
+#define VISUAL_NUM 8
 
 int main(int argc, char **argv)
 {
@@ -133,8 +135,9 @@ int main(int argc, char **argv)
     
     AttachAudioStreamProcessor(music.stream, stream_callback);
     PlayMusicStream(music);
-    InitWindow((int)buf.n_elements, WINDOW_HEIGHT, "");
-    SetWindowSize((NOTES - 1) * RECT_W, WINDOW_HEIGHT);
+    
+    InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "");
+    SetWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
     SetTargetFPS(60);
     
     float maxmagalltime = 0;
@@ -152,12 +155,12 @@ int main(int argc, char **argv)
 
         UpdateMusicStream(music);
         ClearBackground(GRAY);
-        lock.lock();
+
         if (memchanged) {
             ringbuffer_push_back(&buf, (float *)buffer_g, frames_g, channels);
             memchanged = 0;
         }
-        lock.unlock();
+
         memset(notelevelmax, 0, (NOTES - 1) * sizeof(float));
         
         fft(buf.base, 1, fftres, buf.n_elements);
@@ -185,12 +188,12 @@ int main(int argc, char **argv)
         BeginDrawing();
 
         for (size_t i = 0; i < NOTES - 1; i++) {
-            height = (int)(notelevelmax[i] / maxmagalltime * WINDOW_HEIGHT);
-            height = (height < WINDOW_HEIGHT) * height + (height > WINDOW_HEIGHT) * WINDOW_HEIGHT;
-            heightrel = (height / (float)WINDOW_HEIGHT) * 0.8f;
+            height = (int)(notelevelmax[i] / maxmagalltime * VISUAL_HEIGHT);
+            height = (height < VISUAL_HEIGHT) * height + (height > VISUAL_HEIGHT) * VISUAL_HEIGHT;
+            heightrel = (height / (float)VISUAL_HEIGHT) * 0.8f;
             c.r = (unsigned char)(255 * heightrel);
             c.g = (unsigned char)(200 * (1 - heightrel));
-            DrawRectangle((int)i * RECT_W, WINDOW_HEIGHT - height, RECT_W, height, c);
+            DrawRectangle((int)i * RECT_W, VISUAL_HEIGHT - height, RECT_W, height, c);
         }
 
         EndDrawing();
