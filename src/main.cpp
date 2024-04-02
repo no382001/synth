@@ -286,7 +286,7 @@ void mode2(int argc, char **argv){
     AttachAudioStreamProcessor(music.stream, stream_callback);
     PlayMusicStream(music);
     InitWindow((int)buf.n_elements, WINDOW_HEIGHT, "");
-    SetWindowSize((NOTES - 1) * RECT_W, WINDOW_HEIGHT);
+    SetWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
     SetTargetFPS(60);
 
     float maxmagalltime = 0;
@@ -349,10 +349,10 @@ void mode2(int argc, char **argv){
         auto curr = buf.base;
         auto i = 1;
         while (i < buf.n_elements) {
-            int x1 = (800 * (i - 1)) / buf.n_elements;
-            int x2 = (800 * i) / buf.n_elements;
-            int y1 = 400 / 2 + (int)(curr[(i - 1 + buf.n_elements) % buf.n_elements] * (800 / 4));
-            int y2 = 400 / 2 + (int)(curr[i] * (800 / 4));
+            int x1 = (WINDOW_WIDTH * (i - 1)) / buf.n_elements;
+            int x2 = (WINDOW_WIDTH * i) / buf.n_elements;
+            int y1 = WINDOW_HEIGHT / 2 + (int)(curr[(i - 1 + buf.n_elements) % buf.n_elements] * (WINDOW_WIDTH / 4));
+            int y2 = WINDOW_HEIGHT / 2 + (int)(curr[i] * (WINDOW_WIDTH / 4));
             DrawLine(x1, y1, x2, y2, BLACK);
             i++;
         }
