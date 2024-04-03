@@ -85,17 +85,23 @@ unsigned int channels;
 unsigned int samplesize;
 //std::mutex lock;
 unsigned int frameslast = 0;
-void *buffer_g;
-unsigned int frames_g;
+
+float buffer_g[1024] = {0.0};
+unsigned int frames_g = 0;
+
 float notes[] = {0, 80, 120, 180, 240, 320, 520, 820, 1100, 1350, 1600, 2100, 2600, 3200, 3600, 4000, 4600, 5200, 5750, 6500, 8000, 11000, 20000};
 #define NOTES (sizeof(notes) / sizeof(float))
 #define RECT_W (VISUAL_WIDTH / (NOTES-1))
 
+std::mutex mutex;
+
 void stream_callback(void *bufferData, unsigned int frames) {
+    mutex.lock();
     frameslast = frames;
     memchanged = 1;
-    buffer_g = bufferData;
+    memcpy(buffer_g, bufferData, frames * sizeof(float) * channels);
     frames_g = frames;
+    mutex.unlock();
 }
 
 float frequency = 440.0f;
@@ -124,7 +130,7 @@ void mode1() {
     AudioStream as;
     as = LoadAudioStream(44100, 16, 1);
     SetAudioStreamCallback(as, sine_wave);
-    
+    /**/
     for (size_t i = 0; i < NOTES; i++) {
         indices[i] = (int)notes[i] * RINGBUF_SIZE / as.sampleRate;
     }
@@ -196,10 +202,12 @@ void mode1() {
 
         ClearBackground(GRAY);
 
+        mutex.lock();
         if (memchanged) {
             ringbuffer_push_back(&buf, (float *)buffer_g, frames_g, channels);
             memchanged = 0;
         }
+        mutex.unlock();
 
         memset(notelevelmax, 0, (NOTES - 1) * sizeof(float));
         
@@ -239,10 +247,10 @@ void mode1() {
         auto curr = buf.base;
         auto i = 1;
         while (i < buf.n_elements) {
-            int x1 = (800 * (i - 1)) / buf.n_elements;
-            int x2 = (800 * i) / buf.n_elements;
-            int y1 = 400 / 2 + (int)(curr[(i - 1 + buf.n_elements) % buf.n_elements] * (800 / 4));
-            int y2 = 400 / 2 + (int)(curr[i] * (800 / 4));
+            int x1 = (WINDOW_WIDTH * (i - 1)) / buf.n_elements;
+            int x2 = (WINDOW_WIDTH * i) / buf.n_elements;
+            int y1 = WINDOW_HEIGHT / 2 + (int)(curr[(i - 1 + buf.n_elements) % buf.n_elements] * (WINDOW_WIDTH / 4));
+            int y2 = WINDOW_HEIGHT / 2 + (int)(curr[i] * (WINDOW_WIDTH / 4));
             DrawLine(x1, y1, x2, y2, BLACK);
             i++;
         }
@@ -250,14 +258,15 @@ void mode1() {
         EndDrawing();
     }
 
-    //StopMusicStream(music);
+    StopAudioStream(as);
     DetachAudioStreamProcessor(as, stream_callback);
+    UnloadAudioStream(as);
     free(buf.base);
-    //UnloadMusicStream(music);
     CloseAudioDevice();
     free(fftres);
     free(mags);
     CloseWindow();
+    /**/
 }
 
 void mode2(int argc, char **argv){
@@ -265,12 +274,13 @@ void mode2(int argc, char **argv){
     float notelevelmax[NOTES - 1];
     
     SetTraceLogLevel(LOG_WARNING);
-    InitAudioDevice();
+    //InitAudioDevice(); motherfuck
 
     Music music = LoadMusicStream(argv[1]);
     float musiclength = GetMusicTimeLength(music);
     music.looping = false;
 
+    /**/
     for (size_t i = 0; i < NOTES; i++) {
         indices[i] = (int)notes[i] * RINGBUF_SIZE / music.stream.sampleRate;
     }
@@ -359,6 +369,16 @@ void mode2(int argc, char **argv){
 
         EndDrawing();
     }
+
+    StopMusicStream(music);
+    DetachAudioStreamProcessor(music.stream, stream_callback);
+    UnloadMusicStream(music);
+    free(buf.base);
+    CloseAudioDevice();
+    free(fftres);
+    free(mags);
+    CloseWindow();
+    /**/
 
 }
 
