@@ -17,6 +17,7 @@
 #include <stdbool.h>
 #include <iostream>
 
+#include <SDL2/SDL_ttf.h>
 
 #define PI2 (M_PI * 2)
 #define RINGBUF_SIZE 1024

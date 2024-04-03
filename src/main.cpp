@@ -70,14 +70,17 @@ int main() {
 
     SDL_PauseAudio(0);
 
-    // ----
     SDL_Event event;
     SDL_Renderer *renderer;
     SDL_Window *window;
 
     SDL_Init(SDL_INIT_VIDEO);
-    SDL_CreateWindowAndRenderer(DEFAULT_WIDTH, DEFAULT_HEIGHT, SDL_RENDERER_PRESENTVSYNC, &window, &renderer);
-    // ----
+    SDL_CreateWindowAndRenderer(DEFAULT_WIDTH, DEFAULT_HEIGHT, /*SDL_RENDERER_PRESENTVSYNC*/0, &window, &renderer);
+
+    if (TTF_Init() == -1) {
+        printf("SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError());
+        return 1; // or handle the error in a way suitable for your application
+    }
 
     while (true) {
 
@@ -93,10 +96,10 @@ int main() {
             // very sloppy osc mutation
             case SDL_KEYDOWN:
                 if (e.key.keysym.sym == SDLK_UP) {
-                    osc_vol+= .01f;
+                    osc_vol += .01f;
                     osc = oscillate(osc_note, osc_vol);
                 } else if (e.key.keysym.sym == SDLK_DOWN){
-                    osc_vol += .01f;
+                    osc_vol -= .01f;
                     osc = oscillate(osc_note, osc_vol); 
                 } else if (e.key.keysym.sym == SDLK_RIGHT){
                     osc_note_offset += 1.0f;
@@ -116,13 +119,13 @@ int main() {
         auto i = 0;
         while (i < 512) {
             int x1 = i;
-            int y1 = DEFAULT_HEIGHT/2 - 256/2 + rbuf.base[i];
+            int y1 = DEFAULT_HEIGHT / 2 + (rbuf.base[i] - 128) * 0.2;
             SDL_RenderDrawPoint(renderer, x1, y1);
             i++;
         }
 
         SDL_RenderPresent(renderer);
-        // SDL_Delay(16); // probably not needed w/ SDL_RENDERER_PRESENTVSYNC
+        SDL_Delay(16*2); // probably not needed w/ SDL_RENDERER_PRESENTVSYNC
         }
 
     SDL_DestroyRenderer(renderer);
