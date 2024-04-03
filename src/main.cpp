@@ -31,19 +31,13 @@ std::mutex mtx;
 #define DEFAULT_WIDTH 400
 #define DEFAULT_HEIGHT 400
 
-auto ticka = SDL_GetTicks();
-auto tickb = SDL_GetTicks();
-auto delta = 0;
-
 void oscillator_callback(void *userdata, Uint8 *stream, int len) {
     for (int i = 0; i < len; i++) {
         float v = next(OSC);
         stream[i] = (uint8_t)((v * 127.5f) + 127.5f); // convert from float [-1.0, 1.0] to unsigned 8-bit [0, 255]
     }
 
-    mtx.lock();
     ringbuffer_push_back(&rbuf, (uint8_t*)stream, len, 1);
-    mtx.unlock();
 }
 
 int main() {
@@ -52,15 +46,14 @@ int main() {
         printf("Failed to initialize SDL: %s\n", SDL_GetError());
         return 1;
     }
+
     auto osc_vol = 0.8f;
     auto osc_note_offset = 440.00f;
     auto osc_note = (float)SAMPLE_RATE / osc_note_offset;
     oscillator osc = oscillate(osc_note, osc_vol);
     OSC = &osc;
     
-    mtx.lock();
     allocate_ringbuffer(&rbuf, RINGBUF_SIZE);
-    mtx.unlock();
 
     SDL_AudioSpec spec = {
         .freq = SAMPLE_RATE,
@@ -83,7 +76,7 @@ int main() {
     SDL_Window *window;
 
     SDL_Init(SDL_INIT_VIDEO);
-    SDL_CreateWindowAndRenderer(DEFAULT_WIDTH, DEFAULT_HEIGHT, 0, &window, &renderer);
+    SDL_CreateWindowAndRenderer(DEFAULT_WIDTH, DEFAULT_HEIGHT, SDL_RENDERER_PRESENTVSYNC, &window, &renderer);
     // ----
 
     while (true) {
@@ -113,31 +106,24 @@ int main() {
                     osc = oscillate((float)SAMPLE_RATE / osc_note_offset, osc_vol);
                 }
                 break;
-        }
-
-        ticka = SDL_GetTicks();
-        delta = ticka - tickb;
-        if (delta < 1000/60.0){
-            continue;
-        } else {
-            tickb = ticka;
+            }
         }
 
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
         SDL_RenderClear(renderer);
         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
 
-        // dont mutex this
         auto i = 0;
-        while (i < rbuf.n_elements) {
-            int x1 = (DEFAULT_WIDTH * i) / rbuf.n_elements;
-            int y1 = DEFAULT_HEIGHT / 2 + rbuf.base[i];
+        while (i < 512) {
+            int x1 = i;
+            int y1 = DEFAULT_HEIGHT/2 - 256/2 + rbuf.base[i];
             SDL_RenderDrawPoint(renderer, x1, y1);
             i++;
         }
+
         SDL_RenderPresent(renderer);
+        // SDL_Delay(16); // probably not needed w/ SDL_RENDERER_PRESENTVSYNC
         }
-    }
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
