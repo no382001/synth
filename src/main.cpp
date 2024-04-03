@@ -28,8 +28,10 @@ oscillator *OSC;
 RingBuffer rbuf{};
 std::mutex mtx;
 
-#define DEFAULT_WIDTH 400
+#define DEFAULT_WIDTH 800
 #define DEFAULT_HEIGHT 400
+#define SCALING 0.5
+#define UNIT 0.2f
 
 void oscillator_callback(void *userdata, Uint8 *stream, int len) {
     for (int i = 0; i < len; i++) {
@@ -47,7 +49,7 @@ int main() {
         return 1;
     }
 
-    auto osc_vol = 0.8f;
+    auto osc_vol = 0.2f;
     auto osc_note_offset = 440.00f;
     auto osc_note = (float)SAMPLE_RATE / osc_note_offset;
     oscillator osc = oscillate(osc_note, osc_vol);
@@ -59,7 +61,7 @@ int main() {
         .freq = SAMPLE_RATE,
         .format = AUDIO_U8,
         .channels = 1,
-        .samples = 512,
+        .samples = (int)80*(int)M_PI*2, // <- used to be 512
         .callback = oscillator_callback,
     };
 
@@ -75,12 +77,7 @@ int main() {
     SDL_Window *window;
 
     SDL_Init(SDL_INIT_VIDEO);
-    SDL_CreateWindowAndRenderer(DEFAULT_WIDTH, DEFAULT_HEIGHT, /*SDL_RENDERER_PRESENTVSYNC*/0, &window, &renderer);
-
-    if (TTF_Init() == -1) {
-        printf("SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError());
-        return 1; // or handle the error in a way suitable for your application
-    }
+    SDL_CreateWindowAndRenderer(DEFAULT_WIDTH, DEFAULT_HEIGHT, SDL_RENDERER_PRESENTVSYNC, &window, &renderer);
 
     while (true) {
 
@@ -96,16 +93,16 @@ int main() {
             // very sloppy osc mutation
             case SDL_KEYDOWN:
                 if (e.key.keysym.sym == SDLK_UP) {
-                    osc_vol += .01f;
+                    osc_vol += UNIT;
                     osc = oscillate(osc_note, osc_vol);
                 } else if (e.key.keysym.sym == SDLK_DOWN){
-                    osc_vol -= .01f;
+                    osc_vol -= UNIT;
                     osc = oscillate(osc_note, osc_vol); 
                 } else if (e.key.keysym.sym == SDLK_RIGHT){
-                    osc_note_offset += 1.0f;
+                    osc_note_offset += UNIT;
                     osc = oscillate((float)SAMPLE_RATE / osc_note_offset, osc_vol);
                 } else if (e.key.keysym.sym == SDLK_LEFT){
-                    osc_note_offset -= 1.0f;
+                    osc_note_offset -= UNIT;
                     osc = oscillate((float)SAMPLE_RATE / osc_note_offset, osc_vol);
                 }
                 break;
@@ -118,8 +115,9 @@ int main() {
 
         auto i = 0;
         while (i < 512) {
-            int x1 = i;
-            int y1 = DEFAULT_HEIGHT / 2 + (rbuf.base[i] - 128) * 0.2;
+            int x1 = DEFAULT_WIDTH / 2 + i - 512 / 2;
+            int y1 = DEFAULT_HEIGHT / 2 + (rbuf.base[i] - 128) * SCALING;
+            
             SDL_RenderDrawPoint(renderer, x1, y1);
             i++;
         }
