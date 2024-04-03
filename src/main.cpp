@@ -10,18 +10,19 @@ typedef struct {
 } oscillator;
 
 oscillator oscillate(float rate, float volume) {
-  oscillator o = {
-      .current_step = 0,
-      .step_size = (2 * M_PI) / rate,
-      .volume = volume,
-  };
-  return o;
+    oscillator o = {
+        .current_step = 0,
+        .step_size = (2 * M_PI) / rate,
+        .volume = volume,
+    };
+    return o;
 }
 
 float next(oscillator *os) {
-  float ret = sinf(os->current_step);
-  os->current_step += os->step_size;
-  return ret * os->volume;
+    //float ret = sinf(os->current_step) >= 0 ? 1.0f : -1.0f;
+    float ret = sinf(os->current_step);
+    os->current_step += os->step_size;
+    return ret * os->volume;
 }
 
 oscillator *OSC;
@@ -30,7 +31,7 @@ std::mutex mtx;
 
 #define DEFAULT_WIDTH 800
 #define DEFAULT_HEIGHT 800
-#define SCALING 1
+#define SCALING 3
 #define UNIT 0.2f
 
 int countntat = 0;
@@ -62,7 +63,7 @@ int main() {
         .freq = SAMPLE_RATE,
         .format = AUDIO_U8,
         .channels = 1,
-        .samples = 512, // <- used to be 512
+        .samples = 512,
         .callback = oscillator_callback,
     };
 
@@ -74,11 +75,10 @@ int main() {
     SDL_PauseAudio(0);
 
     SDL_Event event;
-    SDL_Renderer *renderer;
-    SDL_Window *window;
+    SDL_Window *window = SDL_CreateWindow("anyad",0,0,DEFAULT_WIDTH,DEFAULT_HEIGHT,0);
+    SDL_Renderer *renderer = SDL_CreateRenderer(window,-1, SDL_RENDERER_PRESENTVSYNC);
 
     SDL_Init(SDL_INIT_VIDEO);
-    SDL_CreateWindowAndRenderer(DEFAULT_WIDTH, DEFAULT_HEIGHT, SDL_RENDERER_PRESENTVSYNC, &window, &renderer);
 
     while (true) {
 
@@ -100,10 +100,10 @@ int main() {
                     osc_vol -= UNIT;
                     osc = oscillate(osc_note, osc_vol); 
                 } else if (e.key.keysym.sym == SDLK_RIGHT){
-                    osc_note_offset += UNIT;
+                    osc_note_offset += UNIT*10;
                     osc = oscillate((float)SAMPLE_RATE / osc_note_offset, osc_vol);
                 } else if (e.key.keysym.sym == SDLK_LEFT){
-                    osc_note_offset -= UNIT;
+                    osc_note_offset -= UNIT*10;
                     osc = oscillate((float)SAMPLE_RATE / osc_note_offset, osc_vol);
                 }
                 break;
@@ -114,11 +114,15 @@ int main() {
         SDL_RenderClear(renderer);
         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
 
-        auto i = 0;
-        
+        auto i = 1;
         while (i < 512/2) {
-            int x1 = DEFAULT_WIDTH / 2 + i - (512 / 2) * SCALING;
-            int y1 = DEFAULT_HEIGHT / 2 + (rbuf.base[i] - 128) * SCALING;
+            int x1 = (i-1) * SCALING;
+            int y1 = rbuf.base[i-1] * SCALING;
+
+            int x2 =  i * SCALING;
+            int y2 = rbuf.base[i] * SCALING;
+
+            SDL_RenderDrawLine(renderer,x1,y1,x2,y2);
             
             SDL_RenderDrawPoint(renderer, x1, y1);
             i++;
