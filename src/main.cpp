@@ -29,10 +29,11 @@ RingBuffer rbuf{};
 std::mutex mtx;
 
 #define DEFAULT_WIDTH 800
-#define DEFAULT_HEIGHT 400
-#define SCALING 0.5
+#define DEFAULT_HEIGHT 800
+#define SCALING 1
 #define UNIT 0.2f
 
+int countntat = 0;
 void oscillator_callback(void *userdata, Uint8 *stream, int len) {
     for (int i = 0; i < len; i++) {
         float v = next(OSC);
@@ -61,7 +62,7 @@ int main() {
         .freq = SAMPLE_RATE,
         .format = AUDIO_U8,
         .channels = 1,
-        .samples = (int)80*(int)M_PI*2, // <- used to be 512
+        .samples = 512, // <- used to be 512
         .callback = oscillator_callback,
     };
 
@@ -114,8 +115,9 @@ int main() {
         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
 
         auto i = 0;
-        while (i < 512) {
-            int x1 = DEFAULT_WIDTH / 2 + i - 512 / 2;
+        
+        while (i < 512/2) {
+            int x1 = DEFAULT_WIDTH / 2 + i - (512 / 2) * SCALING;
             int y1 = DEFAULT_HEIGHT / 2 + (rbuf.base[i] - 128) * SCALING;
             
             SDL_RenderDrawPoint(renderer, x1, y1);
