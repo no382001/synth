@@ -1,17 +1,7 @@
-#include "SDL2/SDL_audio.h"
-#include "SDL2/SDL_timer.h"
-#include <SDL2/SDL.h>
-#include <errno.h>
-#include <math.h>
-#include <stdbool.h>
-#include <stdio.h>
+#include "utils.h"
 
-const int SAMPLE_RATE = 44100;
+const int SAMPLE_RATE = 8000;
 const int BUFFER_SIZE = 4096;
-
-const float A4_OSC = (float)SAMPLE_RATE / 440.00f;
-
-FILE *plot_output;
 
 typedef struct {
   float current_step;
@@ -34,50 +24,123 @@ float next(oscillator *os) {
   return ret * os->volume;
 }
 
-oscillator *A4_oscillator;
+oscillator *OSC;
+RingBuffer rbuf{};
+std::mutex mtx;
+
+#define DEFAULT_WIDTH 400
+#define DEFAULT_HEIGHT 400
+
+auto ticka = SDL_GetTicks();
+auto tickb = SDL_GetTicks();
+auto delta = 0;
 
 void oscillator_callback(void *userdata, Uint8 *stream, int len) {
-  float *fstream = (float *)stream;
-  for (int i = 0; i < BUFFER_SIZE; i++) {
-    float v = next(A4_oscillator);
-    fstream[i] = v;
-  }
-}
+    for (int i = 0; i < len; i++) {
+        float v = next(OSC);
+        stream[i] = (uint8_t)((v * 127.5f) + 127.5f); // convert from float [-1.0, 1.0] to unsigned 8-bit [0, 255]
+    }
 
+    mtx.lock();
+    ringbuffer_push_back(&rbuf, (uint8_t*)stream, len, 1);
+    mtx.unlock();
+}
 
 int main() {
 
-  if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_EVENTS) < 0) {
-    printf("Failed to initialize SDL: %s\n", SDL_GetError());
-    return 1;
-  }
-
-  oscillator a4 = oscillate(A4_OSC, 0.8f);
-  A4_oscillator = &a4;
-
-  SDL_AudioSpec spec = {
-      .freq = SAMPLE_RATE,
-      .format = AUDIO_F32,
-      .channels = 1,
-      .samples = 4096,
-      .callback = oscillator_callback,
-  };
-
-  if (SDL_OpenAudio(&spec, NULL) < 0) {
-    printf("Failed to open Audio Device: %s\n", SDL_GetError());
-    return 1;
-  }
-
-  SDL_PauseAudio(0);
-
-  while (true) {
-    SDL_Event e;
-    while (SDL_PollEvent(&e)) {
-      switch (e.type) {
-      case SDL_QUIT:
-        return 0;
-      }
+    if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_EVENTS) < 0) {
+        printf("Failed to initialize SDL: %s\n", SDL_GetError());
+        return 1;
     }
-  }
-  return 0;
+    auto osc_vol = 0.8f;
+    auto osc_note_offset = 440.00f;
+    auto osc_note = (float)SAMPLE_RATE / osc_note_offset;
+    oscillator osc = oscillate(osc_note, osc_vol);
+    OSC = &osc;
+    
+    mtx.lock();
+    allocate_ringbuffer(&rbuf, RINGBUF_SIZE);
+    mtx.unlock();
+
+    SDL_AudioSpec spec = {
+        .freq = SAMPLE_RATE,
+        .format = AUDIO_U8,
+        .channels = 1,
+        .samples = 512,
+        .callback = oscillator_callback,
+    };
+
+    if (SDL_OpenAudio(&spec, NULL) < 0) {
+        printf("Failed to open Audio Device: %s\n", SDL_GetError());
+        return 1;
+    }
+
+    SDL_PauseAudio(0);
+
+    // ----
+    SDL_Event event;
+    SDL_Renderer *renderer;
+    SDL_Window *window;
+
+    SDL_Init(SDL_INIT_VIDEO);
+    SDL_CreateWindowAndRenderer(DEFAULT_WIDTH, DEFAULT_HEIGHT, 0, &window, &renderer);
+    // ----
+
+    while (true) {
+
+        SDL_Event e;
+        while (SDL_PollEvent(&e)) {
+            switch (e.type) {
+            case SDL_QUIT:
+                SDL_DestroyRenderer(renderer);
+                SDL_DestroyWindow(window);
+                SDL_Quit();
+                return 0;
+
+            // very sloppy osc mutation
+            case SDL_KEYDOWN:
+                if (e.key.keysym.sym == SDLK_UP) {
+                    osc_vol+= .01f;
+                    osc = oscillate(osc_note, osc_vol);
+                } else if (e.key.keysym.sym == SDLK_DOWN){
+                    osc_vol += .01f;
+                    osc = oscillate(osc_note, osc_vol); 
+                } else if (e.key.keysym.sym == SDLK_RIGHT){
+                    osc_note_offset += 1.0f;
+                    osc = oscillate((float)SAMPLE_RATE / osc_note_offset, osc_vol);
+                } else if (e.key.keysym.sym == SDLK_LEFT){
+                    osc_note_offset -= 1.0f;
+                    osc = oscillate((float)SAMPLE_RATE / osc_note_offset, osc_vol);
+                }
+                break;
+        }
+
+        ticka = SDL_GetTicks();
+        delta = ticka - tickb;
+        if (delta < 1000/60.0){
+            continue;
+        } else {
+            tickb = ticka;
+        }
+
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+        SDL_RenderClear(renderer);
+        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+
+        // dont mutex this
+        auto i = 0;
+        while (i < rbuf.n_elements) {
+            int x1 = (DEFAULT_WIDTH * i) / rbuf.n_elements;
+            int y1 = DEFAULT_HEIGHT / 2 + rbuf.base[i];
+            SDL_RenderDrawPoint(renderer, x1, y1);
+            i++;
+        }
+        SDL_RenderPresent(renderer);
+        }
+    }
+
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return 0;
 }
