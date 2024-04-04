@@ -36,14 +36,13 @@ std::mutex mtx;
 
 bool on = false;
 
-int countntat = 0;
 void oscillator_callback(void *userdata, Uint8 *stream, int len) {
     for (int i = 0; i < len; i++) {
         
         if (on){
             auto v = std::accumulate(oscv.begin(), oscv.end(), .0f,
-                [](float acc, oscillator* x) { return next(x); });
-            stream[i] = (uint8_t)((v * 127.5f) + 127.5f) / (uint8_t)oscv.size(); //ez miert megy ossze?
+                [](float acc, oscillator* x) { return (acc + next(x))/oscv.size(); });
+            stream[i] = (uint8_t)((v * 127.5f) + 127.5f);
         } else {
             float v = next(oscv[0]);
             stream[i] = (uint8_t)((v * 127.5f) + 127.5f) ;
