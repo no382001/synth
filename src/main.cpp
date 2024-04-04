@@ -26,19 +26,30 @@ float next(oscillator *os) {
 }
 
 oscillator *OSC;
+oscillator *OSC2;
 RingBuffer rbuf{};
 std::mutex mtx;
+
 
 #define DEFAULT_WIDTH 800
 #define DEFAULT_HEIGHT 800
 #define SCALING 3
-#define UNIT 0.2f
+#define UNIT 0.01f
+
+bool on = false;
 
 int countntat = 0;
 void oscillator_callback(void *userdata, Uint8 *stream, int len) {
     for (int i = 0; i < len; i++) {
-        float v = next(OSC);
-        stream[i] = (uint8_t)((v * 127.5f) + 127.5f); // convert from float [-1.0, 1.0] to unsigned 8-bit [0, 255]
+        if (on){
+            float v = next(OSC);
+            stream[i] = (uint8_t)((v * 127.5f) + 127.5f) / 2; // convert from float [-1.0, 1.0] to unsigned 8-bit [0, 255]
+            v = next(OSC2); 
+            stream[i] += (uint8_t)((v * 127.5f) + 127.5f) / 2;
+        } else {
+            float v = next(OSC);
+            stream[i] = (uint8_t)((v * 127.5f) + 127.5f) ;
+        }
     }
 
     ringbuffer_push_back(&rbuf, (uint8_t*)stream, len, 1);
@@ -55,7 +66,9 @@ int main() {
     auto osc_note_offset = 440.00f;
     auto osc_note = (float)SAMPLE_RATE / osc_note_offset;
     oscillator osc = oscillate(osc_note, osc_vol);
+    oscillator osc2 = oscillate(370.0f, osc_vol);
     OSC = &osc;
+    OSC2 = &osc2;
     
     allocate_ringbuffer(&rbuf, RINGBUF_SIZE);
 
@@ -105,6 +118,8 @@ int main() {
                 } else if (e.key.keysym.sym == SDLK_LEFT){
                     osc_note_offset -= UNIT*10;
                     osc = oscillate((float)SAMPLE_RATE / osc_note_offset, osc_vol);
+                } else if (e.key.keysym.sym == SDLK_RSHIFT){
+                    on = !on;
                 }
                 break;
             }
@@ -112,9 +127,14 @@ int main() {
 
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
         SDL_RenderClear(renderer);
-        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+
+        if (on)
+            SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+        else
+            SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
 
         auto i = 1;
+        // miert kell lefelezni hogy eltunjon az `overlap`? nem ugyanugy csak rateszed a kovetkezo buffert a ringben?
         while (i < 512/2) {
             int x1 = (i-1) * SCALING;
             int y1 = rbuf.base[i-1] * SCALING;
