@@ -16,6 +16,8 @@
 #include <math.h>
 #include <stdbool.h>
 #include <iostream>
+#include <vector>
+#include <numeric>
 
 #define PI2 (M_PI * 2)
 #define RINGBUF_SIZE 1024

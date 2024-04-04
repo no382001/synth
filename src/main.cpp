@@ -9,13 +9,12 @@ typedef struct {
   float volume;
 } oscillator;
 
-oscillator oscillate(float rate, float volume) {
-    oscillator o = {
+oscillator* create_osc(float rate, float volume) {
+    return new oscillator{
         .current_step = 0,
         .step_size = (2 * M_PI) / rate,
         .volume = volume,
     };
-    return o;
 }
 
 float next(oscillator *os) {
@@ -25,8 +24,7 @@ float next(oscillator *os) {
     return ret * os->volume;
 }
 
-oscillator *OSC;
-oscillator *OSC2;
+std::vector<oscillator*> oscv;
 RingBuffer rbuf{};
 std::mutex mtx;
 
@@ -41,13 +39,13 @@ bool on = false;
 int countntat = 0;
 void oscillator_callback(void *userdata, Uint8 *stream, int len) {
     for (int i = 0; i < len; i++) {
+        
         if (on){
-            float v = next(OSC);
-            stream[i] = (uint8_t)((v * 127.5f) + 127.5f) / 2; // convert from float [-1.0, 1.0] to unsigned 8-bit [0, 255]
-            v = next(OSC2); 
-            stream[i] += (uint8_t)((v * 127.5f) + 127.5f) / 2;
+            auto v = std::accumulate(oscv.begin(), oscv.end(), .0f,
+                [](float acc, oscillator* x) { return next(x); });
+            stream[i] = (uint8_t)((v * 127.5f) + 127.5f) / (uint8_t)oscv.size(); //ez miert megy ossze?
         } else {
-            float v = next(OSC);
+            float v = next(oscv[0]);
             stream[i] = (uint8_t)((v * 127.5f) + 127.5f) ;
         }
     }
@@ -62,13 +60,13 @@ int main() {
         return 1;
     }
 
-    auto osc_vol = 0.2f;
-    auto osc_note_offset = 440.00f;
+    auto osc_vol = 0.5f;
+    float osc_note_offset = 440.00f;
     auto osc_note = (float)SAMPLE_RATE / osc_note_offset;
-    oscillator osc = oscillate(osc_note, osc_vol);
-    oscillator osc2 = oscillate(370.0f, osc_vol);
-    OSC = &osc;
-    OSC2 = &osc2;
+
+    for (size_t i = 0; i < 2; i++) {
+        oscv.push_back(create_osc((float)SAMPLE_RATE/(osc_note_offset - 10*i), osc_vol));
+    }
     
     allocate_ringbuffer(&rbuf, RINGBUF_SIZE);
 
@@ -108,16 +106,16 @@ int main() {
             case SDL_KEYDOWN:
                 if (e.key.keysym.sym == SDLK_UP) {
                     osc_vol += UNIT;
-                    osc = oscillate(osc_note, osc_vol);
+                    oscv[0] = create_osc(osc_note, osc_vol);
                 } else if (e.key.keysym.sym == SDLK_DOWN){
                     osc_vol -= UNIT;
-                    osc = oscillate(osc_note, osc_vol); 
+                    oscv[0] = create_osc(osc_note, osc_vol); 
                 } else if (e.key.keysym.sym == SDLK_RIGHT){
                     osc_note_offset += UNIT*10;
-                    osc = oscillate((float)SAMPLE_RATE / osc_note_offset, osc_vol);
+                    oscv[0] = create_osc((float)SAMPLE_RATE / osc_note_offset, osc_vol);
                 } else if (e.key.keysym.sym == SDLK_LEFT){
                     osc_note_offset -= UNIT*10;
-                    osc = oscillate((float)SAMPLE_RATE / osc_note_offset, osc_vol);
+                    oscv[0] = create_osc((float)SAMPLE_RATE / osc_note_offset, osc_vol);
                 } else if (e.key.keysym.sym == SDLK_RSHIFT){
                     on = !on;
                 }
