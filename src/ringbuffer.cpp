@@ -33,41 +33,27 @@ struct ringbuffer {
     static void* read_wrapper(void* context) {
         auto rb = static_cast<ringbuffer*>(context);
         do {
-            rb->readToOut();
+            rb->read_to_out();
+            rb->print_present_state();
         } while (1);
     }
 
     static void* write_wrapper(void* context) {
         auto rb = static_cast<ringbuffer*>(context);
         do {
-            rb->writeFromIn();
-            sleep(1); // one thread has to be slower than the other?
+            rb->write_from_in();
         } while (1);
     }
 
     // write from m_in to the internal ring buffer
-    void writeFromIn() {
+    void write_from_in() {
         pthread_mutex_lock(&m_mutex);
-
-        std::cout << "m_in:  ";
-        for (int i = 0; i < m_in_size; i++) {
-            std::cout << m_in[i] << " ";
-        }
-        std::cout << std::endl;
-
-        std::cout << "m_buffer:";
-        for (int i = 0; i < m_size; i++) {
-            std::cout << m_buffer[i] << " ";
-        }
-        std::cout << std::endl;
 
         for(size_t i = 0; i < m_in_size; ++i) {
             m_buffer[m_writer_next] = m_in[i];
             m_writer_next = (m_writer_next + 1) % m_size;
             if (m_reader_unread < m_size) {
                 ++m_reader_unread;
-            } else {
-                // todo: handle overflow or advance head (if implementing a circular overwrite mechanism)
             }
         }
         pthread_cond_signal(&m_written_cond); // notify the waiting reader
@@ -75,14 +61,8 @@ struct ringbuffer {
     }
 
     // read into m_out from the internal ring buffer
-    void readToOut() {
+    void read_to_out() {
         pthread_mutex_lock(&m_mutex);
-
-        std::cout << "m_out: ";
-        for (int i = 0; i < m_in_size; i++) {
-            std::cout << m_out[i] << " ";
-        }
-        std::cout << std::endl;
 
         if (m_reader_unread == 0) {
             pthread_cond_wait(&m_written_cond, &m_mutex);
@@ -99,28 +79,65 @@ struct ringbuffer {
         }
         pthread_mutex_unlock(&m_mutex);
     }
+
+    void print_present_state(bool b = false){
+        std::cout << "m_in:   ";
+        for (int i = 0; i < 5; i++) {
+            std::cout << m_in[i] << " ";
+        }
+        std::cout << "|...| ";
+        for (int i = 5; i > 0; i--) {
+            std::cout << m_in[m_in_size - i] << " ";
+        }
+        std::cout << std::endl;
+
+        std::cout << "m_out:  ";
+        for (int i = 0; i < 5; i++) {
+            std::cout << m_out[i] << " ";
+        }
+        std::cout << "|...| ";
+        for (int i = 5; i > 0; i--) {
+            std::cout << m_out[m_out_size - i] << " ";
+        }
+        std::cout << std::endl;
+        
+        if (b){
+            std::cout << "m_buff: ";
+            for (int i = 0; i < m_size; i++) {
+                std::cout << m_buffer[i];
+                if (i == (m_out_size)-1){
+                    std::cout << "|";
+                } else {
+                    std::cout << " ";
+                }
+            }
+        }
+        std::cout << std::endl << " -- " << std::endl;
+    }
 };
 
 
+#define N 512
 int main(void)
 {
     pthread_t reader_thread, writer_thread;
 
-    int from[5] = {1,11,3,4};
-    int to[5]{};
-    ringbuffer<int> rb(10,(int*)&from,5,(int*)&to,5);
+    int from[N]{};
+    int to[N]{};
+    ringbuffer<int> rb(N*2,
+        (int*)&from,sizeof(from)/sizeof(int),
+        (int*)&to,sizeof(to)/sizeof(int));
 
-    puts("Starting threads. Type text and press enter, or type ctrl-d at empty line to quit.");
     pthread_create(&reader_thread, NULL, ringbuffer<int>::read_wrapper, &rb);
     pthread_create(&writer_thread, NULL, ringbuffer<int>::write_wrapper, &rb);
 
     int n = 1;
     while (1){
-        for (size_t i = 0; i < 5; i++) {
+        for (size_t i = 0; i < N; i++) {
             from[i] = i + n;
         }
         n++;
-        sleep(0.5);
+        sleep(1);
     }
 
     pthread_join(writer_thread, NULL);
@@ -130,3 +147,16 @@ int main(void)
 }
 
 // g++ ringbuffer.cpp -lpthread -std=c++17 -g
+
+/*
+ * GUI | AUDIO | EVENTHANDLER
+ *   \       \_____/
+ *    \___________/
+ * 
+ * the audio is 8k 512 sample size which means that its way slower than the eventhandler and the gui
+ * is the ringbuffer my only chance? nonblocking storage
+ * i could also check if the buffer is the same and not replace it all the time 
+ * 
+ * 
+ * 
+ */
