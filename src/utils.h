@@ -1,7 +1,9 @@
 #pragma once
-#include "SDL2/SDL_audio.h"
-#include "SDL2/SDL_timer.h"
-#include <SDL2/SDL.h>
+#define SDL_MAIN_HANDLED
+
+#include "SDL_audio.h"
+#include "SDL_timer.h"
+#include <SDL.h>
 
 #include <stdlib.h>
 #include <string.h>

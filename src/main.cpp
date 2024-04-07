@@ -44,11 +44,11 @@ void oscillator_callback(void *userdata, Uint8 *stream, int len) {
     ringbuffer_push_back(&rbuf, (uint8_t*)stream, len, 1);
 }
 
-int main() {
-
-    if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_EVENTS) < 0) {
-        printf("Failed to initialize SDL: %s\n", SDL_GetError());
-        return 1;
+int main(int argc, char *argv)
+{
+    if (SDL_Init(SDL_INIT_EVERYTHING))
+    {
+        std::cout << "SDL_INIT_VIDEO aaa" << std::endl;
     }
 
     auto osc_vol = 0.2f;

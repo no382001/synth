@@ -16,3 +16,4 @@ CPackConfig.cmake
 .vscode
 *.a
 logs/*
+build
