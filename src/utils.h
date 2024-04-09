@@ -13,7 +13,6 @@
 #include <complex>
 #include <mutex>
 #include <errno.h>
-#include <math.h>
 #include <stdbool.h>
 #include <iostream>
 #include <vector>
@@ -33,3 +32,10 @@ typedef struct {
 int allocate_ringbuffer(RingBuffer* buf, size_t n_elements);
 void ringbuffer_push_back(RingBuffer* buf, uint8_t* data, size_t n_elements, size_t interleaved);
 void fft(float *data, size_t stride, std::complex<float>* out, size_t n);
+
+
+typedef struct {
+  float current_step;
+  float step_size;
+  float volume;
+} oscillator;

@@ -1,13 +1,8 @@
 #include "utils.h"
+#include "audio.h"
 
 const int SAMPLE_RATE = 8000;
 const int BUFFER_SIZE = 4096;
-
-typedef struct {
-  float current_step;
-  float step_size;
-  float volume;
-} oscillator;
 
 oscillator* create_osc(float rate, float volume) {
     return new oscillator{
@@ -25,40 +20,44 @@ float next(oscillator *os) {
 }
 
 std::vector<oscillator*> oscv;
-RingBuffer rbuf{};
 std::mutex mtx;
 
+float* postproc;
 
 #define DEFAULT_WIDTH 800
 #define DEFAULT_HEIGHT 800
 #define SCALING 3
 #define UNIT 0.01f
-
 bool on = false;
 
+
+std::vector<atomic_sample> g_at;
+int framecount = 0;
 void oscillator_callback(void *userdata, Uint8 *stream, int len) {
-    for (int i = 0; i < len; i++) {
+    if (!g_at.empty()){
+        auto a = g_at.at(framecount);
         
-        if (on){
-            auto v = std::accumulate(oscv.begin(), oscv.end(), .0f,
-                [](float acc, oscillator* x) { return (acc + next(x))/oscv.size(); });
-            stream[i] = (uint8_t)((v * 127.5f) + 127.5f);
+        if (framecount < g_at.size() - 1){
+            framecount++;
         } else {
-            float v = next(oscv[0]);
-            stream[i] = (uint8_t)((v * 127.5f) + 127.5f) ;
+            framecount = 0;
+        }
+        
+        for (int i = 0; i < len; i++) {
+                float v = a.buffer[i];
+                stream[i] = (uint8_t)((v * 127.5f) + 127.5f);
+                postproc[i] = stream[i];
         }
     }
-
-    ringbuffer_push_back(&rbuf, (uint8_t*)stream, len, 1);
 }
 
 int main() {
-
     if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_EVENTS) < 0) {
         printf("Failed to initialize SDL: %s\n", SDL_GetError());
         return 1;
     }
 
+    postproc = new float[512];
     auto osc_vol = 0.5f;
     float osc_note_offset = 440.00f;
     auto osc_note = (float)SAMPLE_RATE / osc_note_offset;
@@ -66,8 +65,8 @@ int main() {
     for (size_t i = 0; i < 2; i++) {
         oscv.push_back(create_osc((float)SAMPLE_RATE/(osc_note_offset - 10*i), osc_vol));
     }
-    
-    allocate_ringbuffer(&rbuf, RINGBUF_SIZE);
+
+    init_sine_wave(g_at);
 
     SDL_AudioSpec spec = {
         .freq = SAMPLE_RATE,
@@ -125,19 +124,16 @@ int main() {
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
         SDL_RenderClear(renderer);
 
-        if (on)
-            SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-        else
-            SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+        SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
 
         auto i = 1;
         // miert kell lefelezni hogy eltunjon az `overlap`? nem ugyanugy csak rateszed a kovetkezo buffert a ringben?
         while (i < 512/2) {
             int x1 = (i-1) * SCALING;
-            int y1 = rbuf.base[i-1] * SCALING;
+            int y1 = postproc[i-1] * SCALING;
 
             int x2 =  i * SCALING;
-            int y2 = rbuf.base[i] * SCALING;
+            int y2 = postproc[i] * SCALING;
 
             SDL_RenderDrawLine(renderer,x1,y1,x2,y2);
             
