@@ -50,12 +50,12 @@ void oscillator_callback(void *userdata, Uint8 *stream, int len) {
 float par_thr_b[512]{};
 int par_thread(void *data) {
     do {
-        if (grb){
+        if (grb && rb_can_write(grb)){
             
             for (int j = 0; j < 512; j++) {
                 par_thr_b[j] = next(osc);
             }
-            rb_write(grb, reinterpret_cast<char *>(par_thr_b), 512*sizeof(float));
+            auto r = rb_write(grb, reinterpret_cast<char *>(par_thr_b), 512*sizeof(float));
         }
     } while (1);
 }
