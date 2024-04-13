@@ -1,5 +1,6 @@
 #include "utils.h"
 #include "audio.h"
+#include "ringbuffer.h"
 
 const int SAMPLE_RATE = 8000;
 const int BUFFER_SIZE = 4096;
@@ -19,7 +20,7 @@ float next(oscillator *os) {
     return ret * os->volume;
 }
 
-std::vector<oscillator*> oscv;
+oscillator* osc = nullptr;
 std::mutex mtx;
 
 float* postproc;
@@ -30,25 +31,33 @@ float* postproc;
 #define UNIT 0.01f
 bool on = false;
 
+rb_t* grb = nullptr;
 
-std::vector<atomic_sample> g_at;
-int framecount = 0;
+float osc_cb_b[512]{};
 void oscillator_callback(void *userdata, Uint8 *stream, int len) {
-    if (!g_at.empty()){
-        auto a = g_at.at(framecount);
-        
-        if (framecount < g_at.size() - 1){
-            framecount++;
-        } else {
-            framecount = 0;
-        }
+    if (grb){
+
+        rb_read(grb, reinterpret_cast<char *>(osc_cb_b), 512*sizeof(float));
         
         for (int i = 0; i < len; i++) {
-                float v = a.buffer[i];
-                stream[i] = (uint8_t)((v * 127.5f) + 127.5f);
-                postproc[i] = stream[i];
+            float v = osc_cb_b[i];
+            stream[i] = (uint8_t)((v * 127.5f) + 127.5f);
+            postproc[i] = stream[i];
         }
     }
+}
+
+float par_thr_b[512]{};
+int par_thread(void *data) {
+    do {
+        if (grb){
+            
+            for (int j = 0; j < 512; j++) {
+                par_thr_b[j] = next(osc);
+            }
+            rb_write(grb, reinterpret_cast<char *>(par_thr_b), 512*sizeof(float));
+        }
+    } while (1);
 }
 
 int main() {
@@ -62,11 +71,9 @@ int main() {
     float osc_note_offset = 440.00f;
     auto osc_note = (float)SAMPLE_RATE / osc_note_offset;
 
-    for (size_t i = 0; i < 2; i++) {
-        oscv.push_back(create_osc((float)SAMPLE_RATE/(osc_note_offset - 10*i), osc_vol));
-    }
+    osc = create_osc((float)SAMPLE_RATE/osc_note_offset, osc_vol);
 
-    init_sine_wave(g_at);
+    grb = rb_new(512*sizeof(float)*100);
 
     SDL_AudioSpec spec = {
         .freq = SAMPLE_RATE,
@@ -82,6 +89,8 @@ int main() {
     }
 
     SDL_PauseAudio(0);
+
+    SDL_Thread *thread = SDL_CreateThread(par_thread, "ExampleThread", NULL);
 
     SDL_Event event;
     SDL_Window *window = SDL_CreateWindow("anyad",0,0,DEFAULT_WIDTH,DEFAULT_HEIGHT,0);
@@ -104,16 +113,16 @@ int main() {
             case SDL_KEYDOWN:
                 if (e.key.keysym.sym == SDLK_UP) {
                     osc_vol += UNIT;
-                    oscv[0] = create_osc(osc_note, osc_vol);
+                    osc = create_osc(osc_note, osc_vol);
                 } else if (e.key.keysym.sym == SDLK_DOWN){
                     osc_vol -= UNIT;
-                    oscv[0] = create_osc(osc_note, osc_vol); 
+                    osc = create_osc(osc_note, osc_vol); 
                 } else if (e.key.keysym.sym == SDLK_RIGHT){
                     osc_note_offset += UNIT*10;
-                    oscv[0] = create_osc((float)SAMPLE_RATE / osc_note_offset, osc_vol);
+                    osc = create_osc((float)SAMPLE_RATE / osc_note_offset, osc_vol);
                 } else if (e.key.keysym.sym == SDLK_LEFT){
                     osc_note_offset -= UNIT*10;
-                    oscv[0] = create_osc((float)SAMPLE_RATE / osc_note_offset, osc_vol);
+                    osc = create_osc((float)SAMPLE_RATE / osc_note_offset, osc_vol);
                 } else if (e.key.keysym.sym == SDLK_RSHIFT){
                     on = !on;
                 }
