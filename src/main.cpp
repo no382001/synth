@@ -1,9 +1,22 @@
-#include "utils.h"
+
 #include "audio.h"
 #include "ringbuffer.h"
+#include <atomic>
+
+#define FPS_INTERVAL 1000.0 //ms.
+
+Uint32 fps_lasttime = SDL_GetTicks();
+Uint32 fps_current;
+Uint32 fps_frames = 0;
+
+#define DEFAULT_WIDTH 800
+#define DEFAULT_HEIGHT 800
+#define SCALING 13.0
+#define UNIT 0.01f
 
 const int SAMPLE_RATE = 8000;
 const int BUFFER_SIZE = 4096;
+const int SAMPLE_FRAME_SIZE = 512;
 
 oscillator* create_osc(float rate, float volume) {
     return new oscillator{
@@ -14,51 +27,49 @@ oscillator* create_osc(float rate, float volume) {
 }
 
 float next(oscillator *os) {
-    //float ret = sinf(os->current_step) >= 0 ? 1.0f : -1.0f;
-    float ret = sinf(os->current_step);
+    float ret = sinf(os->current_step) >= 0 ? 1.0f : -1.0f;
+    //float ret = sinf(os->current_step);
     os->current_step += os->step_size;
     return ret * os->volume;
 }
 
-oscillator* osc = nullptr;
-std::mutex mtx;
 
-float* postproc;
+static rb_t* global_rb = nullptr;
+std::atomic<int> sample_count{0};
 
-#define DEFAULT_WIDTH 800
-#define DEFAULT_HEIGHT 800
-#define SCALING 3
-#define UNIT 0.01f
-bool on = false;
-
-rb_t* grb = nullptr;
-
-float osc_cb_b[512]{};
-void oscillator_callback(void *userdata, Uint8 *stream, int len) {
-    if (grb){
-
-        rb_read(grb, reinterpret_cast<char *>(osc_cb_b), 512*sizeof(float));
-        
-        for (int i = 0; i < len; i++) {
-            float v = osc_cb_b[i];
-            stream[i] = (uint8_t)((v * 127.5f) + 127.5f);
-            postproc[i] = stream[i];
-        }
+void spec_callback(void *userdata, Uint8 *stream, int len) {
+    assert(len == SAMPLE_FRAME_SIZE * sizeof(float));
+    if (global_rb){
+        rb_read(global_rb, reinterpret_cast<char *>(stream), SAMPLE_FRAME_SIZE * sizeof(float));
+        sample_count.fetch_add(1, std::memory_order_relaxed);
     }
 }
 
-float par_thr_b[512]{};
+oscillator* osc = nullptr;
+float* postproc;
 int par_thread(void *data) {
+    float par_thr_b[SAMPLE_FRAME_SIZE]{};
     do {
-        if (grb && rb_can_write(grb)){
+        if (global_rb && rb_can_write(global_rb)){
             
-            for (int j = 0; j < 512; j++) {
+            for (int j = 0; j < SAMPLE_FRAME_SIZE; j++) {
                 par_thr_b[j] = next(osc);
             }
-            auto r = rb_write(grb, reinterpret_cast<char *>(par_thr_b), 512*sizeof(float));
+            
+            auto r = rb_write(global_rb, reinterpret_cast<char *>(par_thr_b), SAMPLE_FRAME_SIZE * sizeof(float));
+            
+            for (int j = 0; j < SAMPLE_FRAME_SIZE; j++) {
+                postproc[j] = par_thr_b[j];
+            }
         }
     } while (1);
 }
+
+const int CELL_WIDTH = DEFAULT_WIDTH / 8;
+const int CELL_HEIGHT = DEFAULT_HEIGHT / 10;
+
+bool cells[8][10]{ false };
+float curr_cell{1.0};
 
 int main() {
     if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_EVENTS) < 0) {
@@ -66,21 +77,24 @@ int main() {
         return 1;
     }
 
-    postproc = new float[512];
+    postproc = new float[SAMPLE_FRAME_SIZE];
     auto osc_vol = 0.5f;
     float osc_note_offset = 440.00f;
     auto osc_note = (float)SAMPLE_RATE / osc_note_offset;
 
     osc = create_osc((float)SAMPLE_RATE/osc_note_offset, osc_vol);
 
-    grb = rb_new(512*sizeof(float)*100);
+    global_rb = rb_new(SAMPLE_FRAME_SIZE*sizeof(float)*10);
+
+    // http://forums.libsdl.org/viewtopic.php?p=28652
+    // https://en.wikipedia.org/wiki/Tempo#Beats_per_minute
 
     SDL_AudioSpec spec = {
-        .freq = SAMPLE_RATE,
-        .format = AUDIO_U8,
+        .freq = SAMPLE_RATE, // every second
+        .format = AUDIO_F32,
         .channels = 1,
-        .samples = 512,
-        .callback = oscillator_callback,
+        .samples = SAMPLE_FRAME_SIZE, // SAMPLE_RATE / SAMPLE_FRAME_SIZE -> per second
+        .callback = spec_callback
     };
 
     if (SDL_OpenAudio(&spec, NULL) < 0) {
@@ -123,9 +137,18 @@ int main() {
                 } else if (e.key.keysym.sym == SDLK_LEFT){
                     osc_note_offset -= UNIT*10;
                     osc = create_osc((float)SAMPLE_RATE / osc_note_offset, osc_vol);
-                } else if (e.key.keysym.sym == SDLK_RSHIFT){
-                    on = !on;
                 }
+                break;
+
+            case SDL_MOUSEBUTTONDOWN:
+                int x, y;
+                SDL_GetMouseState(&x, &y);
+                
+                int col = x / CELL_WIDTH;
+                int row = y / CELL_HEIGHT;
+
+                cells[col][row] = !cells[col][row];
+
                 break;
             }
         }
@@ -135,27 +158,80 @@ int main() {
 
         SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
 
+        /* waveform */
         auto i = 1;
-        // miert kell lefelezni hogy eltunjon az `overlap`? nem ugyanugy csak rateszed a kovetkezo buffert a ringben?
-        while (i < 512/2) {
-            int x1 = (i-1) * SCALING;
-            int y1 = postproc[i-1] * SCALING;
+        while (i < SAMPLE_FRAME_SIZE) {
+            int x1 = (i-1) + DEFAULT_WIDTH/2 - SAMPLE_FRAME_SIZE/2;
+            int y1 = postproc[i-1] * SCALING + 40;
 
-            int x2 =  i * SCALING;
-            int y2 = postproc[i] * SCALING;
+            int x2 = i + DEFAULT_WIDTH/2 - SAMPLE_FRAME_SIZE/2;
+            int y2 = postproc[i] * SCALING + 40;
 
             SDL_RenderDrawLine(renderer,x1,y1,x2,y2);
-            
-            SDL_RenderDrawPoint(renderer, x1, y1);
+            //SDL_RenderDrawPoint(renderer, x1, y1);
             i++;
         }
 
-        SDL_RenderPresent(renderer);
-        SDL_Delay(16*2); // probably not needed w/ SDL_RENDERER_PRESENTVSYNC
+        /* clicky table */
+        for (int row = 1; row < 10; ++row) {
+            for (int col = 0; col < 8; ++col) {
+                SDL_Rect cell;
+                cell.x = col * CELL_WIDTH;
+                cell.y = row * CELL_HEIGHT;
+                cell.w = CELL_WIDTH;
+                cell.h = CELL_HEIGHT;
+
+                SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+                if (cells[col][row]){
+                    SDL_RenderFillRect(renderer, &cell);
+                } else {
+                    SDL_RenderDrawRect(renderer, &cell);
+                }
+
+            }
         }
+
+        /* indicator line */
+
+        SDL_RenderDrawLine(renderer,
+            0,
+            (curr_cell+1)*CELL_HEIGHT - CELL_HEIGHT/2,
+            DEFAULT_WIDTH,
+            (curr_cell+1)*CELL_HEIGHT - CELL_HEIGHT/2);
+        
+        curr_cell = (sample_count.load(std::memory_order_relaxed) % 9) + 1;
+
+        /* fps <-- vsync seems to work */ 
+        fps_frames++;
+        if (fps_lasttime < SDL_GetTicks() - FPS_INTERVAL) {
+            fps_lasttime = SDL_GetTicks();
+            fps_current = fps_frames;
+            fps_frames = 0;
+        }
+
+        SDL_RenderPresent(renderer);
+
+
+    }
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
     return 0;
 }
+
+/* 
+- read a text file w/ some symbols in it representing the cached sounds
+- start playing them at some speed, figure out what `speed` means
+- processing thread, an event thread, audio thread, and gui thread
+
+
+-> if i want to change the playback speed, wtf do i change? the callback speed of the audiothread?
+
+- how tf do i test how accurate the bpm is?
+
+-> maybe cheat a bit and resample the sound in the processing thread? interpolate in real time? is that a good idea at all?
+
+some people say that you should have diff threads, but olufson says thats not how it should work
+
+*/
