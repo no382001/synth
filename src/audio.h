@@ -1,10 +1,17 @@
 #pragma once
 
-#include <stdint.h>
-#include <vector>
+#ifdef WIN32
+#include "SDL_audio.h"
+#include "SDL_timer.h"
+#include <SDL.h>
+#else
 #include "SDL2/SDL_audio.h"
 #include "SDL2/SDL_timer.h"
 #include <SDL2/SDL.h>
+#endif
+
+#include <stdint.h>
+#include <vector>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>

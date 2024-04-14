@@ -1,4 +1,4 @@
-
+#define SDL_MAIN_HANDLED
 #include "audio.h"
 #include "ringbuffer.h"
 #include <atomic>
@@ -11,6 +11,8 @@ Uint32 fps_frames = 0;
 
 #define DEFAULT_WIDTH 800
 #define DEFAULT_HEIGHT 800
+#define DEFAULT_OFFSET_X 1
+#define DEFAULT_OFFSET_Y 25
 #define SCALING 13.0
 #define UNIT 0.01f
 
@@ -112,10 +114,10 @@ const int CELL_HEIGHT = DEFAULT_HEIGHT / 10;
 
 float curr_cell{1.0};
 
-int main() {
-    if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_EVENTS) < 0) {
-        printf("Failed to initialize SDL: %s\n", SDL_GetError());
-        return 1;
+int main(int argc, char *argv) {
+    if (SDL_Init(SDL_INIT_EVERYTHING))
+    {
+        std::cout << "SDL_INIT_EVERYTHING" << std::endl;
     }
 
     postproc = new float[SAMPLE_FRAME_SIZE];
@@ -148,10 +150,8 @@ int main() {
     SDL_Thread *thread = SDL_CreateThread(par_thread, "ExampleThread", NULL);
 
     SDL_Event event;
-    SDL_Window *window = SDL_CreateWindow("anyad",0,0,DEFAULT_WIDTH,DEFAULT_HEIGHT,0);
+    SDL_Window *window = SDL_CreateWindow("anyad",DEFAULT_OFFSET_X,DEFAULT_OFFSET_Y,DEFAULT_WIDTH,DEFAULT_HEIGHT,0);
     SDL_Renderer *renderer = SDL_CreateRenderer(window,-1, SDL_RENDERER_PRESENTVSYNC);
-
-    SDL_Init(SDL_INIT_VIDEO);
 
     while (true) {
 
