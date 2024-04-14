@@ -29,9 +29,15 @@ oscillator *OSC;
 RingBuffer rbuf{};
 std::mutex mtx;
 
+// graphics defines
 #define DEFAULT_WIDTH 800
 #define DEFAULT_HEIGHT 800
+#define DEFAULT_OFFSET_X 1
+#define DEFAULT_OFFEST_Y 25
+
 #define SCALING 3
+
+// sound defines
 #define UNIT 0.2f
 
 int countntat = 0;
@@ -75,7 +81,7 @@ int main(int argc, char *argv)
     SDL_PauseAudio(0);
 
     SDL_Event event;
-    SDL_Window *window = SDL_CreateWindow("anyad",0,0,DEFAULT_WIDTH,DEFAULT_HEIGHT,0);
+    SDL_Window *window = SDL_CreateWindow("anyad",DEFAULT_OFFSET_X,DEFAULT_OFFEST_Y,DEFAULT_WIDTH,DEFAULT_HEIGHT,0);
     SDL_Renderer *renderer = SDL_CreateRenderer(window,-1, SDL_RENDERER_PRESENTVSYNC);
 
     SDL_Init(SDL_INIT_VIDEO);
