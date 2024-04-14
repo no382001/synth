@@ -1,9 +1,15 @@
 #pragma once
 #define SDL_MAIN_HANDLED
 
+#ifdef WIN32
 #include "SDL_audio.h"
 #include "SDL_timer.h"
 #include <SDL.h>
+#else
+#include "SDL/SDL_audio.h"
+#include "SDL/SDL_timer.h"
+#include <SDL/SDL.h>
+#endif
 
 #include <stdlib.h>
 #include <string.h>
