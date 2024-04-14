@@ -26,9 +26,14 @@ oscillator* create_osc(float rate, float volume) {
     };
 }
 
-float next(oscillator *os) {
+float next_sin(oscillator *os) {
+    float ret = sinf(os->current_step);
+    os->current_step += os->step_size;
+    return ret * os->volume;
+}
+
+float next_rect(oscillator *os) {
     float ret = sinf(os->current_step) >= 0 ? 1.0f : -1.0f;
-    //float ret = sinf(os->current_step);
     os->current_step += os->step_size;
     return ret * os->volume;
 }
@@ -47,19 +52,57 @@ void spec_callback(void *userdata, Uint8 *stream, int len) {
 
 oscillator* osc = nullptr;
 float* postproc;
+
+int cells[8][10]{ 0 };
+
 int par_thread(void *data) {
-    float par_thr_b[SAMPLE_FRAME_SIZE]{};
+    float par_thr_b[SAMPLE_FRAME_SIZE]{};    
+
+    auto osc_vol = 0.5f;
+    float osc_note_offset = 440.00f;
+    auto osc_note = (float)SAMPLE_RATE / osc_note_offset;
+    auto localosc = create_osc((float)SAMPLE_RATE/osc_note_offset, osc_vol);
+
+    int row = 1;
     do {
         if (global_rb && rb_can_write(global_rb)){
+            int n = 0;
+
+            for (int i = 0; i < 8; i++){
+                
+                if(cells[i][row] == 1 || cells[i][row] == 2){ // if the button is toggled
+                    for (int j = 0; j < SAMPLE_FRAME_SIZE; j++) {
+                        if (cells[i][row] == 1)
+                            par_thr_b[j] += next_sin(osc); // sum the toggled channels
+                        else
+                            par_thr_b[j] += next_rect(osc);
+                    }
+                    n++; // inc the numebr of mixed channels
+                    localosc = create_osc((float)SAMPLE_RATE/osc_note_offset, osc_vol); // reset the osc so that the phase stays the same
+                }
+            }
             
-            for (int j = 0; j < SAMPLE_FRAME_SIZE; j++) {
-                par_thr_b[j] = next(osc);
+            if (n!=0){
+                for (int i = 0; i < SAMPLE_FRAME_SIZE; i++){ // average the output buffer
+                    par_thr_b[i] /= n;
+                }
+            } else {
+                for (int i = 0; i < SAMPLE_FRAME_SIZE; i++){
+                    par_thr_b[i] = 0;
+                }
             }
             
             auto r = rb_write(global_rb, reinterpret_cast<char *>(par_thr_b), SAMPLE_FRAME_SIZE * sizeof(float));
             
             for (int j = 0; j < SAMPLE_FRAME_SIZE; j++) {
                 postproc[j] = par_thr_b[j];
+            }
+
+            row++; // inc the row
+            //process_row_count.fetch_add(1,std::memory_order_relaxed);
+            
+            if (row == 9){
+                row = 1;
             }
         }
     } while (1);
@@ -68,7 +111,6 @@ int par_thread(void *data) {
 const int CELL_WIDTH = DEFAULT_WIDTH / 8;
 const int CELL_HEIGHT = DEFAULT_HEIGHT / 10;
 
-bool cells[8][10]{ false };
 float curr_cell{1.0};
 
 int main() {
@@ -84,7 +126,7 @@ int main() {
 
     osc = create_osc((float)SAMPLE_RATE/osc_note_offset, osc_vol);
 
-    global_rb = rb_new(SAMPLE_FRAME_SIZE*sizeof(float)*10);
+    global_rb = rb_new(SAMPLE_FRAME_SIZE * sizeof(float) * 5);
 
     // http://forums.libsdl.org/viewtopic.php?p=28652
     // https://en.wikipedia.org/wiki/Tempo#Beats_per_minute
@@ -117,39 +159,42 @@ int main() {
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             switch (e.type) {
-            case SDL_QUIT:
-                SDL_DestroyRenderer(renderer);
-                SDL_DestroyWindow(window);
-                SDL_Quit();
-                return 0;
+                case SDL_QUIT:
+                    SDL_DestroyRenderer(renderer);
+                    SDL_DestroyWindow(window);
+                    SDL_Quit();
+                    return 0;
 
-            // very sloppy osc mutation
-            case SDL_KEYDOWN:
-                if (e.key.keysym.sym == SDLK_UP) {
-                    osc_vol += UNIT;
-                    osc = create_osc(osc_note, osc_vol);
-                } else if (e.key.keysym.sym == SDLK_DOWN){
-                    osc_vol -= UNIT;
-                    osc = create_osc(osc_note, osc_vol); 
-                } else if (e.key.keysym.sym == SDLK_RIGHT){
-                    osc_note_offset += UNIT*10;
-                    osc = create_osc((float)SAMPLE_RATE / osc_note_offset, osc_vol);
-                } else if (e.key.keysym.sym == SDLK_LEFT){
-                    osc_note_offset -= UNIT*10;
-                    osc = create_osc((float)SAMPLE_RATE / osc_note_offset, osc_vol);
-                }
-                break;
+                // very sloppy osc mutation
+                case SDL_KEYDOWN:
+                    if (e.key.keysym.sym == SDLK_UP) {
+                        osc_vol += UNIT;
+                        osc = create_osc(osc_note, osc_vol);
+                    } else if (e.key.keysym.sym == SDLK_DOWN){
+                        osc_vol -= UNIT;
+                        osc = create_osc(osc_note, osc_vol); 
+                    } else if (e.key.keysym.sym == SDLK_RIGHT){
+                        osc_note_offset += UNIT*10;
+                        osc = create_osc((float)SAMPLE_RATE / osc_note_offset, osc_vol);
+                    } else if (e.key.keysym.sym == SDLK_LEFT){
+                        osc_note_offset -= UNIT*10;
+                        osc = create_osc((float)SAMPLE_RATE / osc_note_offset, osc_vol);
+                    }
+                    break;
 
-            case SDL_MOUSEBUTTONDOWN:
-                int x, y;
-                SDL_GetMouseState(&x, &y);
-                
-                int col = x / CELL_WIDTH;
-                int row = y / CELL_HEIGHT;
+                case SDL_MOUSEBUTTONDOWN:
+                    int x, y;
+                    SDL_GetMouseState(&x, &y);
+                    
+                    int col = x / CELL_WIDTH;
+                    int row = y / CELL_HEIGHT;
 
-                cells[col][row] = !cells[col][row];
+                    cells[col][row]++;
+                    if (cells[col][row] == 3){
+                        cells[col][row] = 0;
+                    }
 
-                break;
+                    break;
             }
         }
 
@@ -182,7 +227,10 @@ int main() {
                 cell.h = CELL_HEIGHT;
 
                 SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-                if (cells[col][row]){
+                if (cells[col][row] == 1){
+                    SDL_RenderFillRect(renderer, &cell);
+                } else if (cells[col][row] == 2){
+                    SDL_SetRenderDrawColor(renderer, 255, 0, 255, 255);
                     SDL_RenderFillRect(renderer, &cell);
                 } else {
                     SDL_RenderDrawRect(renderer, &cell);
@@ -193,13 +241,14 @@ int main() {
 
         /* indicator line */
 
+        curr_cell = (sample_count.load(std::memory_order_relaxed) % 9) + 1;
+
         SDL_RenderDrawLine(renderer,
             0,
             (curr_cell+1)*CELL_HEIGHT - CELL_HEIGHT/2,
             DEFAULT_WIDTH,
             (curr_cell+1)*CELL_HEIGHT - CELL_HEIGHT/2);
         
-        curr_cell = (sample_count.load(std::memory_order_relaxed) % 9) + 1;
 
         /* fps <-- vsync seems to work */ 
         fps_frames++;
