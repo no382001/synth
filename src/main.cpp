@@ -44,7 +44,7 @@ std::atomic<int> sample_count{0};
 
 void spec_callback(void *userdata, Uint8 *stream, int len) {
     assert(len == SAMPLE_FRAME_SIZE * sizeof(float));
-    if (global_rb){
+    if (global_rb && rb_can_read(global_rb)){
         rb_read(global_rb, reinterpret_cast<char *>(stream), SAMPLE_FRAME_SIZE * sizeof(float));
         sample_count.fetch_add(1, std::memory_order_relaxed);
     }
@@ -66,23 +66,22 @@ int par_thread(void *data) {
     int row = 1;
     do {
         if (global_rb && rb_can_write(global_rb)){
-            int n = 0;
+            float n = 0;
 
             for (int i = 0; i < 8; i++){
-                
                 if(cells[i][row] == 1 || cells[i][row] == 2){ // if the button is toggled
                     for (int j = 0; j < SAMPLE_FRAME_SIZE; j++) {
                         if (cells[i][row] == 1)
-                            par_thr_b[j] += next_sin(osc); // sum the toggled channels
+                            par_thr_b[j] += next_sin(localosc); // sum the toggled channels
                         else
-                            par_thr_b[j] += next_rect(osc);
+                            par_thr_b[j] += next_rect(localosc);
                     }
                     n++; // inc the numebr of mixed channels
                     localosc = create_osc((float)SAMPLE_RATE/osc_note_offset, osc_vol); // reset the osc so that the phase stays the same
                 }
             }
             
-            if (n!=0){
+            if (n != 0){
                 for (int i = 0; i < SAMPLE_FRAME_SIZE; i++){ // average the output buffer
                     par_thr_b[i] /= n;
                 }
@@ -259,8 +258,6 @@ int main() {
         }
 
         SDL_RenderPresent(renderer);
-
-
     }
 
     SDL_DestroyRenderer(renderer);
