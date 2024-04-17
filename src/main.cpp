@@ -47,29 +47,28 @@ std::atomic<int> sample_count{0};
 
 const int BPM = 100;
 const float BEAT_DURATION = 60.0f / BPM;
-const int SAMPLES_PER_BEAT = SAMPLE_RATE * BEAT_DURATION;
+const int SAMPLES_PER_BEAT = static_cast<int>(SAMPLE_RATE * BEAT_DURATION);
 
-std::chrono::steady_clock::time_point last_beat_time = std::chrono::steady_clock::now();
+Uint32 last_beat_time = SDL_GetTicks();
 
 void spec_callback(void *userdata, Uint8 *stream, int len) {
     assert(len == SAMPLE_FRAME_SIZE * sizeof(float));
 
-    // current time and time since last beat
-    auto now = std::chrono::steady_clock::now();
-    float time_since_last_beat = std::chrono::duration<float>(now - last_beat_time).count();
+    Uint32 now = SDL_GetTicks();
+    float time_since_last_beat = (now - last_beat_time) / 1000.0f;
 
-    // calculate number of beats elapsed
     int beats_elapsed = time_since_last_beat / BEAT_DURATION;
 
     if (beats_elapsed >= 1) {
         int required_samples = SAMPLES_PER_BEAT * beats_elapsed;
         if (global_rb && rb_can_read(global_rb)) {
-            rb_read(global_rb, reinterpret_cast<char*>(stream), len);
             sample_count.fetch_add(SAMPLE_FRAME_SIZE, std::memory_order_relaxed);
-            last_beat_time += std::chrono::milliseconds(static_cast<int>(beats_elapsed * BEAT_DURATION * 1000));
+            rb_read(global_rb, reinterpret_cast<char*>(stream), len);
+            last_beat_time += static_cast<Uint32>(beats_elapsed * BEAT_DURATION * 1000);
         }
     }
 }
+
 
 oscillator* osc = nullptr;
 float* postproc;
@@ -182,22 +181,6 @@ int main(int argc, char *argv) {
                     SDL_DestroyWindow(window);
                     SDL_Quit();
                     return 0;
-
-                // very sloppy osc mutation
-                case SDL_KEYDOWN:
-                    if (e.key.keysym.sym == SDLK_UP) {
-                        osc_vol += UNIT;
-                        osc = create_osc(osc_note, osc_vol);
-                    } else if (e.key.keysym.sym == SDLK_DOWN){
-                        osc_vol -= UNIT;
-                        osc = create_osc(osc_note, osc_vol); 
-                    } else if (e.key.keysym.sym == SDLK_RIGHT){
-                        osc_note_offset += UNIT*10;
-                        osc = create_osc((float)SAMPLE_RATE / osc_note_offset, osc_vol);
-                    } else if (e.key.keysym.sym == SDLK_LEFT){
-                        osc_note_offset -= UNIT*10;
-                        osc = create_osc((float)SAMPLE_RATE / osc_note_offset, osc_vol);
-                    }
                     break;
 
                 case SDL_MOUSEBUTTONDOWN:
