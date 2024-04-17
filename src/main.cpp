@@ -40,15 +40,34 @@ float next_rect(oscillator *os) {
     return ret * os->volume;
 }
 
+#include <chrono>
 
 static rb_t* global_rb = nullptr;
 std::atomic<int> sample_count{0};
 
+const int BPM = 100;
+const float BEAT_DURATION = 60.0f / BPM;
+const int SAMPLES_PER_BEAT = SAMPLE_RATE * BEAT_DURATION;
+
+std::chrono::steady_clock::time_point last_beat_time = std::chrono::steady_clock::now();
+
 void spec_callback(void *userdata, Uint8 *stream, int len) {
     assert(len == SAMPLE_FRAME_SIZE * sizeof(float));
-    if (global_rb && rb_can_read(global_rb)){
-        rb_read(global_rb, reinterpret_cast<char *>(stream), SAMPLE_FRAME_SIZE * sizeof(float));
-        sample_count.fetch_add(1, std::memory_order_relaxed);
+
+    // current time and time since last beat
+    auto now = std::chrono::steady_clock::now();
+    float time_since_last_beat = std::chrono::duration<float>(now - last_beat_time).count();
+
+    // calculate number of beats elapsed
+    int beats_elapsed = time_since_last_beat / BEAT_DURATION;
+
+    if (beats_elapsed >= 1) {
+        int required_samples = SAMPLES_PER_BEAT * beats_elapsed;
+        if (global_rb && rb_can_read(global_rb)) {
+            rb_read(global_rb, reinterpret_cast<char*>(stream), len);
+            sample_count.fetch_add(SAMPLE_FRAME_SIZE, std::memory_order_relaxed);
+            last_beat_time += std::chrono::milliseconds(static_cast<int>(beats_elapsed * BEAT_DURATION * 1000));
+        }
     }
 }
 
