@@ -1,0 +1,5 @@
+- a working polyphonic piano using the keyboard
+- implement some minimal text editor with syntax-hl
+- integrate tinyscm to that it exports some soundbuffer for the audiomixer to play on keypresses
+- audio viz things
+- sequencing
