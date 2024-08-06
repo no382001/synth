@@ -8,185 +8,11 @@
 
 #define SCREEN_WIDTH 1024
 #define SCREEN_HEIGHT 768
-#define SAMPLE_RATE 44100
-#define SAMPLE_DURATION (1.0f / SAMPLE_RATE)
-#define STREAM_BUFFER_SIZE 1024
-#define NUM_OSCILLATORS 32
-#define MAX_UI_OSCILLATORS 32
 #define UI_PANEL_WIDTH 350
-#define BASE_NOTE_FREQ 440
 
 #define WAVE_SHAPE_OPTIONS "None;Sine;Sawtooth;Square;Triangle;Rounded Square"
 
-typedef enum WaveShape {
-  WaveShape_NONE = 0,
-  WaveShape_SINE = 1,
-  WaveShape_SAWTOOTH = 2,
-  WaveShape_SQUARE = 3,
-  WaveShape_TRIANGLE = 4,
-  WaveShape_ROUNDEDSQUARE = 5
-} WaveShape;
-
-typedef struct UIOscillator {
-  float freq;
-  float amplitude;
-  float shape_parameter_0;
-  WaveShape shape;
-  bool is_dropdown_open;
-  Rectangle shape_dropdown_rect;
-} UIOscillator;
-
-typedef struct Oscillator {
-  float phase;
-  float phase_dt;
-  float freq;
-  float amplitude;
-  float shape_parameter_0;
-} Oscillator;
-
-typedef struct OscillatorArray {
-  Oscillator *osc;
-  size_t count;
-} OscillatorArray;
-
-typedef struct Synth {
-  OscillatorArray sineOsc;
-  OscillatorArray sawtoothOsc;
-  OscillatorArray triangleOsc;
-  OscillatorArray squareOsc;
-  OscillatorArray roundedSquareOsc;
-  float *signal;
-  size_t signal_length;
-  float audio_frame_duration;
-
-  UIOscillator ui_oscillator[MAX_UI_OSCILLATORS];
-  size_t ui_oscillator_count;
-} Synth;
-
-typedef float (*WaveShapeFn)(const Oscillator);
-
-float log2f(float n) {
-  // log(n)/log(2) is log2.
-  return logf(n) / logf(2);
-}
-
-static float getFrequencyForSemitone(float semitone) {
-  // fn = 2^(n/12) × 440 Hz
-  return powf(2.f, semitone / 12.f) * BASE_NOTE_FREQ;
-}
-
-static float getSemitoneForFrequency(float freq) {
-  // n = 12 × log2 (fn / 440 Hz).
-  return 12.f * log2f(freq / BASE_NOTE_FREQ);
-}
-
-static Oscillator *makeOscillator(OscillatorArray *oscArray) {
-  return oscArray->osc + (oscArray->count++);
-}
-
-static void clearOscillatorArray(OscillatorArray *oscArray) {
-  oscArray->count = 0;
-}
-
-float bandlimitedRipple(float phase, float phase_dt) {
-  if (phase < phase_dt) {
-    phase /= phase_dt;
-    return (phase + phase) - (phase * phase) - 1.0f;
-  } else if (phase > 1.0f - phase_dt) {
-    phase = (phase - 1.0f) / phase_dt;
-    return (phase * phase) + (phase + phase) + 1.0f;
-  } else
-    return 0.0f;
-}
-
-void updateOsc(Oscillator *osc, float freq_modulation) {
-  osc->phase_dt = ((osc->freq + freq_modulation) * SAMPLE_DURATION);
-  osc->phase += osc->phase_dt;
-  if (osc->phase < 0.0f)
-    osc->phase += 1.0f;
-  if (osc->phase >= 1.0f)
-    osc->phase -= 1.0f;
-}
-
-void zeroSignal(float *signal) {
-  for (size_t t = 0; t < STREAM_BUFFER_SIZE; t++) {
-    signal[t] = 0.0f;
-  }
-}
-
-// @shapefn
-float sineShape(const Oscillator osc) { return sinf(2.f * PI * osc.phase); }
-
-// @shapefn
-float sawtoothShape(const Oscillator osc) {
-  float sample = (osc.phase * 2.0f) - 1.0f;
-  sample -= bandlimitedRipple(osc.phase, osc.phase_dt);
-  return sample;
-}
-
-// @shapefn
-float triangleShape(const Oscillator osc) {
-  // TODO: Make this band-limited.
-  if (osc.phase < 0.5f)
-    return (osc.phase * 4.0f) - 1.0f;
-  else
-    return (osc.phase * -4.0f) + 3.0f;
-}
-
-// @shapefn
-float squareShape(const Oscillator osc) {
-  float duty_cycle = osc.shape_parameter_0;
-  float sample = (osc.phase < duty_cycle) ? 1.0f : -1.0f;
-  sample += bandlimitedRipple(osc.phase, osc.phase_dt);
-  sample -= bandlimitedRipple(fmodf(osc.phase + (1.f - duty_cycle), 1.0f),
-                              osc.phase_dt);
-  return sample;
-}
-
-// @shapefn
-float roundedSquareShape(const Oscillator osc) {
-  float s = (osc.shape_parameter_0 * 8.f) + 2.f;
-  float base = (float)fabs(s);
-  float power = s * sinf(osc.phase * PI * 2);
-  float denominator = powf(base, power) + 1.f;
-  float sample = (2.f / denominator) - 1.f;
-  return sample;
-}
-
-void updateOscArray(WaveShapeFn base_osc_shape_fn, Synth *synth,
-                    OscillatorArray osc_array) {
-  for (size_t i = 0; i < osc_array.count; i++) {
-    if (osc_array.osc[i].freq > (SAMPLE_RATE / 2) ||
-        osc_array.osc[i].freq < -(SAMPLE_RATE / 2))
-      continue;
-    for (size_t t = 0; t < STREAM_BUFFER_SIZE; t++) {
-      updateOsc(&osc_array.osc[i], 0.0f);
-      synth->signal[t] +=
-          base_osc_shape_fn(osc_array.osc[i]) * osc_array.osc[i].amplitude;
-    }
-  }
-}
-
-void handleAudioStream(AudioStream stream, Synth *synth) {
-  Vector2 mouse_pos = GetMousePosition();
-  // float normalized_mouse_x = (mouse_pos.x / SCREEN_WIDTH);
-  // float normalized_mouse_y = (mouse_pos.y / SCREEN_HEIGHT);
-  // float base_freq = 100.0f + (normalized_mouse_x*normalized_mouse_x *
-  // 4000.0f); synth->lfo.freq = 0.05f + (normalized_mouse_y * 10.0f);
-  float audio_frame_duration = 0.0f;
-
-  if (IsAudioStreamProcessed(stream)) {
-    const float audio_frame_start_time = GetTime();
-    zeroSignal(synth->signal);
-    updateOscArray(&sineShape, synth, synth->sineOsc);
-    updateOscArray(&sawtoothShape, synth, synth->sawtoothOsc);
-    updateOscArray(&triangleShape, synth, synth->triangleOsc);
-    updateOscArray(&squareShape, synth, synth->squareOsc);
-    updateOscArray(&roundedSquareShape, synth, synth->roundedSquareOsc);
-    UpdateAudioStream(stream, synth->signal, synth->signal_length);
-    synth->audio_frame_duration = GetTime() - audio_frame_start_time;
-  }
-}
+#include "synth.h"
 
 void draw_ui(Synth *synth) {
   const int panel_x_start = 0;
@@ -197,7 +23,7 @@ void draw_ui(Synth *synth) {
   bool is_shape_dropdown_open = false;
   int shape_index = 0;
 
-  Vector2 mouseCell = {0}; // Initialize the mouseCell variable
+  Vector2 mouseCell = {0};
   GuiGrid((Rectangle){0, 0, SCREEN_WIDTH, SCREEN_HEIGHT}, "", SCREEN_HEIGHT / 8,
           2, &mouseCell);
 

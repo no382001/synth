@@ -6,13 +6,6 @@ project(tinysynth VERSION 1.0)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED True)
 
-# Include directories
-include_directories(${CMAKE_SOURCE_DIR})
-
-# Add executable
-add_executable(tinysynth
-    src/main.c)
-
 include(FetchContent)
 set(FETCHCONTENT_QUIET FALSE)
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE) # don't build the supplied examples
@@ -36,6 +29,14 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(raygui)
 
+
+add_executable(tinysynth
+    src/main.c
+    src/oscillator.c
+    src/synth.c
+)
+
+target_include_directories(tinysynth PRIVATE h)
 target_include_directories(tinysynth PRIVATE ${raylib_SOURCE_DIR}/src)
 target_include_directories(tinysynth PRIVATE ${raygui_SOURCE_DIR}/src)
 

@@ -1,0 +1,39 @@
+#include "oscillator.h"
+#include "synth.h"
+
+void zeroSignal(float *signal) {
+  for (size_t t = 0; t < STREAM_BUFFER_SIZE; t++) {
+    signal[t] = 0.0f;
+  }
+}
+
+void updateOscArray(WaveShapeFn base_osc_shape_fn, Synth *synth,
+                    OscillatorArray osc_array) {
+  for (size_t i = 0; i < osc_array.count; i++) {
+    if (osc_array.osc[i].freq > (SAMPLE_RATE / 2) ||
+        osc_array.osc[i].freq < -(SAMPLE_RATE / 2))
+      continue;
+    for (size_t t = 0; t < STREAM_BUFFER_SIZE; t++) {
+      updateOsc(&osc_array.osc[i], 0.0f);
+      synth->signal[t] +=
+          base_osc_shape_fn(osc_array.osc[i]) * osc_array.osc[i].amplitude;
+    }
+  }
+}
+
+void handleAudioStream(AudioStream stream, Synth *synth) {
+  Vector2 mouse_pos = GetMousePosition();
+  float audio_frame_duration = 0.0f;
+
+  if (IsAudioStreamProcessed(stream)) {
+    const float audio_frame_start_time = GetTime();
+    zeroSignal(synth->signal);
+    updateOscArray(&sineShape, synth, synth->sineOsc);
+    updateOscArray(&sawtoothShape, synth, synth->sawtoothOsc);
+    updateOscArray(&triangleShape, synth, synth->triangleOsc);
+    updateOscArray(&squareShape, synth, synth->squareOsc);
+    updateOscArray(&roundedSquareShape, synth, synth->roundedSquareOsc);
+    UpdateAudioStream(stream, synth->signal, synth->signal_length);
+    synth->audio_frame_duration = GetTime() - audio_frame_start_time;
+  }
+}
