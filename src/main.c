@@ -160,7 +160,6 @@ void draw_ui(Synth *synth) {
     }
     if (osc != NULL) {
       osc->freq = ui_osc->freq;
-      // osc->freq = note_freq;
       osc->amplitude = ui_osc->amplitude;
       osc->shape_parameter_0 = ui_osc->shape_parameter_0;
     }

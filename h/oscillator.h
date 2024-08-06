@@ -41,7 +41,6 @@ typedef struct UIOscillator {
   Rectangle shape_dropdown_rect;
 } UIOscillator;
 
-
 Oscillator *makeOscillator(OscillatorArray *oscArray);
 void clearOscillatorArray(OscillatorArray *oscArray);
 static float getFrequencyForSemitone(float semitone);
