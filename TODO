@@ -1,5 +1,12 @@
-- a working polyphonic piano using the keyboard
-- implement some minimal text editor with syntax-hl
-- integrate tinyscm to that it exports some soundbuffer for the audiomixer to play on keypresses
-- audio viz things
+FAR-FETCHED
+- make an FFI for tinyscm to connect to
+- more audio viz things
 - sequencing
+
+CAN-DO-NOW
+- documentation
+- building for windows?
+- a working polyphonic piano using the keyboard, and/or midi
+- improve signal rendering
+- load other sounds
+- LFO and freq modulation

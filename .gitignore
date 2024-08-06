@@ -17,3 +17,4 @@ CPackConfig.cmake
 *.a
 logs/*
 build
+tinysynth

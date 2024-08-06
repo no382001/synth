@@ -1,21 +1,44 @@
+cmake_minimum_required(VERSION 3.10)
 
-cmake_minimum_required(VERSION 3.5)
-project(synth)
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_BUILD_TYPE "Debug")
+# Set the project name and version
+project(tinysynth VERSION 1.0)
 
-include_directories(
-    res/SDL2/include)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED True)
 
-link_directories(
-    res/SDL2/bin
-    res/SDL2/lib
+# Include directories
+include_directories(${CMAKE_SOURCE_DIR})
+
+# Add executable
+add_executable(tinysynth
+    src/main.c)
+
+include(FetchContent)
+set(FETCHCONTENT_QUIET FALSE)
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE) # don't build the supplied examples
+set(BUILD_GAMES    OFF CACHE BOOL "" FORCE) # don't build the supplied example games
+
+FetchContent_Declare(
+    raylib
+    GIT_REPOSITORY "https://github.com/raysan5/raylib.git"
+    GIT_TAG "master"
+    GIT_PROGRESS TRUE
 )
 
-add_executable(${PROJECT_NAME})
-target_sources(${PROJECT_NAME} PRIVATE
-    src/main.cpp)
+FetchContent_MakeAvailable(raylib)
 
-target_link_libraries(
-    ${PROJECT_NAME} PRIVATE
-    SDL2 pthread)
+FetchContent_Declare(
+    raygui
+    GIT_REPOSITORY "https://github.com/raysan5/raygui.git"
+    GIT_TAG "master"
+    GIT_PROGRESS TRUE
+)
+
+FetchContent_MakeAvailable(raygui)
+
+target_include_directories(tinysynth PRIVATE ${raylib_SOURCE_DIR}/src)
+target_include_directories(tinysynth PRIVATE ${raygui_SOURCE_DIR}/src)
+
+target_link_libraries(tinysynth m raylib)
+
+target_compile_options(tinysynth PRIVATE -Wall -Wextra -pedantic -Wno-unused-parameter)
