@@ -59,7 +59,7 @@ void draw_ui(Synth *synth) {
                          .width = osc_panel_width - (slider_padding * 2),
                          .height = 25};
 
-    // Frequency slider
+    // frequency slider
     char freq_slider_label[16];
     sprintf(freq_slider_label, "%.1fHz", ui_osc->freq);
     float log_freq = log10f(ui_osc->freq);
@@ -69,7 +69,7 @@ void draw_ui(Synth *synth) {
     ui_osc->freq = powf(10.f, log_freq);
     el_rect.y += el_rect.height + el_spacing;
 
-    // Amplitude slider
+    // amplitude slider
     float decibels = (20.f * log10f(ui_osc->amplitude));
     char amp_slider_label[32];
     sprintf(amp_slider_label, "%.1f dB", decibels);
@@ -79,7 +79,7 @@ void draw_ui(Synth *synth) {
     ui_osc->amplitude = powf(10.f, decibels * (1.f / 20.f));
     el_rect.y += el_rect.height + el_spacing;
 
-    // Shape parameter slider
+    // shape parameter slider
     if (has_shape_param) {
       float shape_param = ui_osc->shape_parameter_0;
       char shape_param_label[32];
@@ -91,7 +91,7 @@ void draw_ui(Synth *synth) {
       el_rect.y += el_rect.height + el_spacing;
     }
 
-    // Defer shape drop-down box.
+    // defer shape drop-down box.
     ui_osc->shape_dropdown_rect = el_rect;
     el_rect.y += el_rect.height + el_spacing;
 
@@ -111,7 +111,7 @@ void draw_ui(Synth *synth) {
   for (size_t ui_osc_i = 0; ui_osc_i < synth->ui_oscillator_count;
        ui_osc_i += 1) {
     UIOscillator *ui_osc = &synth->ui_oscillator[ui_osc_i];
-    // Shape select
+    // shape select
     int shape_index = (int)(ui_osc->shape);
     bool is_dropdown_click =
         GuiDropdownBox(ui_osc->shape_dropdown_rect, WAVE_SHAPE_OPTIONS,
@@ -124,7 +124,6 @@ void draw_ui(Synth *synth) {
       break;
   }
 
-  // Reset synth
   clearOscillatorArray(&synth->sineOsc);
   clearOscillatorArray(&synth->sawtoothOsc);
   clearOscillatorArray(&synth->triangleOsc);
@@ -166,6 +165,53 @@ void draw_ui(Synth *synth) {
   }
 }
 
+void draw_signal(float *signal) {
+  size_t zero_crossing_index = 0;
+  for (size_t i = 1; i < STREAM_BUFFER_SIZE; i++) {
+    if (signal[i] >= 0.0f && signal[i - 1] < 0.0f) // zero-crossing
+    {
+      zero_crossing_index = i;
+      break;
+    }
+  }
+
+  Vector2 signal_points[STREAM_BUFFER_SIZE];
+  const float screen_vertical_midpoint = (SCREEN_HEIGHT / 2);
+  for (size_t point_idx = 0; point_idx < STREAM_BUFFER_SIZE; point_idx++) {
+    const size_t signal_idx =
+        (point_idx + zero_crossing_index) % STREAM_BUFFER_SIZE;
+    signal_points[point_idx].x = (float)point_idx + UI_PANEL_WIDTH;
+    signal_points[point_idx].y =
+        screen_vertical_midpoint + (int)(signal[signal_idx] * 400);
+  }
+  DrawLineStrip(signal_points, STREAM_BUFFER_SIZE - zero_crossing_index, RED);
+}
+
+#define NUM_KEYS 12
+int keyMappings[NUM_KEYS] = {KEY_A, KEY_S,         KEY_D,         KEY_F,
+                             KEY_G, KEY_H,         KEY_J,         KEY_K,
+                             KEY_L, KEY_SEMICOLON, KEY_APOSTROPHE};
+
+#define BASE_SEMITONE 0 // A4 = 440 Hz
+
+int semitoneOffsets[NUM_KEYS] = {-9, -7, -5, -4, -2, 0, 2, 3, 5, 7, 8, 10};
+
+void handle_keys(Synth *synth) {
+  for (int i = 0; i < NUM_KEYS; i++) {
+    if (IsKeyDown(keyMappings[i])) {
+
+      float freq = getFrequencyForSemitone(BASE_SEMITONE + semitoneOffsets[i]);
+
+      Oscillator *osc = makeOscillator(&synth->sineOsc);
+      if (osc != NULL) {
+        osc->freq = freq;
+        osc->amplitude = 0.5f;
+        osc->shape_parameter_0 = 1.0f;
+      }
+    }
+  }
+}
+
 int main() {
   const int screen_width = 1024;
   const int screen_height = 768;
@@ -197,7 +243,7 @@ int main() {
                  .audio_frame_duration = 0.0f,
                  .ui_oscillator_count = 0};
 
-  // Set oscillator amplitudes.
+  // set oscillator amplitudes.
   for (size_t i = 0; i < NUM_OSCILLATORS; i++) {
     sineOsc[i].amplitude = 0.0f;
     sawtoothOsc[i].amplitude = 0.0f;
@@ -211,35 +257,8 @@ int main() {
     ClearBackground(BLACK);
 
     draw_ui(&synth);
-
-    // Drawing the signal.
-    {
-      size_t zero_crossing_index = 0;
-#if 1
-      for (size_t i = 1; i < STREAM_BUFFER_SIZE; i++) {
-        if (signal[i] >= 0.0f && signal[i - 1] < 0.0f) // zero-crossing
-        {
-          zero_crossing_index = i;
-          break;
-        }
-      }
-#endif
-
-      Vector2 signal_points[STREAM_BUFFER_SIZE];
-      const float screen_vertical_midpoint = (SCREEN_HEIGHT / 2);
-      for (size_t point_idx = 0; point_idx < STREAM_BUFFER_SIZE; point_idx++) {
-        const size_t signal_idx =
-            (point_idx + zero_crossing_index) % STREAM_BUFFER_SIZE;
-        signal_points[point_idx].x = (float)point_idx + UI_PANEL_WIDTH;
-        signal_points[point_idx].y =
-            screen_vertical_midpoint + (int)(signal[signal_idx] * 400);
-      }
-      DrawLineStrip(signal_points, STREAM_BUFFER_SIZE - zero_crossing_index,
-                    RED);
-
-      DrawText(TextFormat("Fundemental Freq: %.1f", squareOsc[0].freq),
-               UI_PANEL_WIDTH + 10, 30, 20, RED);
-    }
+    handle_keys(&synth);
+    draw_signal(signal);
 
     const float total_frame_duration = GetFrameTime();
     DrawText(TextFormat("Frame time: %.3f%%, Audio budget: %.3f%%",

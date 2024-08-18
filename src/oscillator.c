@@ -11,17 +11,6 @@ void clearOscillatorArray(OscillatorArray *oscArray) {
   oscArray->count = 0;
 }
 
-static float getFrequencyForSemitone(float semitone) {
-  // fn = 2^(n/12) × 440 Hz
-  // 2^(n/12) <-- semitone value to a freq ratio
-  return powf(2.f, semitone / 12.f) * BASE_NOTE_FREQ;
-}
-
-static float getSemitoneForFrequency(float freq) {
-  // n = 12 × log2 (fn / 440 Hz).
-  return 12.f * log2f(freq / BASE_NOTE_FREQ);
-}
-
 void updateOsc(Oscillator *osc, float freq_modulation) {
   // calc the phase increment for each sample based on the osc freq
   osc->phase_dt = ((osc->freq + freq_modulation) * SAMPLE_DURATION);

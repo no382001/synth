@@ -24,7 +24,6 @@ void updateOscArray(WaveShapeFn base_osc_shape_fn, Synth *synth,
 }
 
 void handleAudioStream(AudioStream stream, Synth *synth) {
-  Vector2 mouse_pos = GetMousePosition();
   float audio_frame_duration = 0.0f;
 
   if (IsAudioStreamProcessed(stream)) {

@@ -6,7 +6,7 @@ FAR-FETCHED
 CAN-DO-NOW
 - documentation
 - building for windows?
-- a working polyphonic piano using the keyboard, and/or midi
+- ADSR
 - improve signal rendering
 - load other sounds
 - LFO and freq modulation
