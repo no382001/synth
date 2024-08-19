@@ -47,8 +47,14 @@ void load_config() {
   hash_get_and_set_float(config,"envelope.release_time",&defaultEnvelope.release_time);
 }
 
+const int num_points = 1000;
+static Vector2 ADSR_points[1000];
+
 int main() {
   load_config();
+  float total_time = defaultEnvelope.attack_time + defaultEnvelope.decay_time + defaultEnvelope.release_time;
+  total_time += total_time/3;
+  generateADSRPoints(defaultEnvelope, ADSR_points, num_points, total_time);
 
   const int screen_width = 1024;
   const int screen_height = 768;
@@ -113,6 +119,9 @@ int main() {
                         100.0f / ((1.0f / synth.audio_frame_duration) /
                                   ((float)SAMPLE_RATE / STREAM_BUFFER_SIZE))),
              UI_PANEL_WIDTH + 10, 10, 20, RED);
+
+    DrawLineStrip(ADSR_points, num_points, RED);
+    
     EndDrawing();
   }
 

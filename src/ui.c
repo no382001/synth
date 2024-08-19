@@ -207,3 +207,52 @@ void handle_keys(Synth *synth) {
     }
   }
 }
+
+void generateADSRPoints(ADSR envelope, Vector2 *points, int num_points, float total_time) {
+    float attack_time = envelope.attack_time;
+    float decay_time = envelope.decay_time;
+    float release_time = envelope.release_time;
+    float sustain_time = total_time - (attack_time + decay_time + release_time);
+
+    // ensure the sustain time isn't negative
+    if (sustain_time < 0) sustain_time = 0;
+
+    // calculate how many points to allocate to each phase
+    int attack_points = (int)(attack_time / total_time * num_points);
+    int decay_points = (int)(decay_time / total_time * num_points);
+    int sustain_points = (int)(sustain_time / total_time * num_points);
+    int release_points = num_points - (attack_points + decay_points + sustain_points);
+
+    int point_index = 0;
+    float current_level = 0.0f;
+    float time_step;
+
+    // attack Phase
+    time_step = attack_time / (attack_points > 0 ? attack_points : 1);
+    for (int i = 0; i < attack_points; i++, point_index++) {
+        current_level = (i * time_step) / attack_time;
+        points[point_index] = (Vector2){(float)point_index / (num_points - 1) * 500, 200 - current_level * 200};
+    }
+
+    // decay Phase
+    time_step = decay_time / (decay_points > 0 ? decay_points : 1);
+    for (int i = 0; i < decay_points; i++, point_index++) {
+        float decay_progress = (i * time_step) / decay_time;
+        current_level = 1.0f - (1.0f - envelope.sustain_level) * decay_progress;
+        points[point_index] = (Vector2){(float)point_index / (num_points - 1) * 500, 200 - current_level * 200};
+    }
+
+    // sustain Phase
+    for (int i = 0; i < sustain_points; i++, point_index++) {
+        points[point_index] = (Vector2){(float)point_index / (num_points - 1) * 500, 200 - envelope.sustain_level * 200};
+    }
+
+    // release Phase
+    time_step = release_time / (release_points > 0 ? release_points : 1);
+    for (int i = 0; i < release_points; i++, point_index++) {
+        float release_progress = (i * time_step) / release_time;
+        current_level = envelope.sustain_level * (1.0f - release_progress);
+        points[point_index] = (Vector2){(float)point_index / (num_points - 1) * 500, 200 - current_level * 200};
+    }
+}
+

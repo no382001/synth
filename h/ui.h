@@ -15,3 +15,4 @@
 void draw_signal(float *signal);
 void handle_keys(Synth *synth);
 void draw_ui(Synth *synth);
+void generateADSRPoints(ADSR envelope, Vector2 *points, int num_points, float total_time);

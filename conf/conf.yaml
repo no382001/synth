@@ -1,6 +1,5 @@
 envelope:
-# this is a line comment
-  attack_time: 0.5 # this is an eol comment
+  attack_time: 15.0 # in mseconds?
   decay_time: 1.0
   sustain_level: 0.7
   release_time: 30.0
