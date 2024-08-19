@@ -14,6 +14,7 @@ static ADSR defaultEnvelope = {.attack_time = ENVELOPE_DEFAULT_ATTACK_TIME,
                                .decay_time = ENVELOPE_DEFAULT_DECAY_TIME,
                                .sustain_level = ENVELOPE_DEFAULT_SUSTAIN_LEVEL,
                                .release_time = ENVELOPE_DEFAULT_RELEASE_TIME,
+                               .sustain_time = ENVELOPE_DEFAULT_SUSTAIN_TIME,
                                .current_level = 0.0f,
                                .state = OFF};
 
@@ -44,6 +45,7 @@ void load_config() {
   hash_get_and_set_float(config,"envelope.attack_time",&defaultEnvelope.attack_time);
   hash_get_and_set_float(config,"envelope.decay_time",&defaultEnvelope.decay_time);
   hash_get_and_set_float(config,"envelope.sustain_level",&defaultEnvelope.sustain_level);
+  hash_get_and_set_float(config,"envelope.sustain_time",&defaultEnvelope.sustain_time);
   hash_get_and_set_float(config,"envelope.release_time",&defaultEnvelope.release_time);
 }
 
@@ -52,8 +54,7 @@ static Vector2 ADSR_points[1000];
 
 int main() {
   load_config();
-  float total_time = defaultEnvelope.attack_time + defaultEnvelope.decay_time + defaultEnvelope.release_time;
-  total_time += total_time/3;
+  float total_time = defaultEnvelope.attack_time + defaultEnvelope.decay_time + defaultEnvelope.release_time + defaultEnvelope.sustain_time;
   generateADSRPoints(defaultEnvelope, ADSR_points, num_points, total_time);
 
   const int screen_width = 1024;
@@ -112,13 +113,6 @@ int main() {
     draw_ui(&synth);
     handle_keys(&synth);
     draw_signal(signal);
-
-    const float total_frame_duration = GetFrameTime();
-    DrawText(TextFormat("Frame time: %.3f%%, Audio budget: %.3f%%",
-                        (100.0f / (total_frame_duration * 60.f)),
-                        100.0f / ((1.0f / synth.audio_frame_duration) /
-                                  ((float)SAMPLE_RATE / STREAM_BUFFER_SIZE))),
-             UI_PANEL_WIDTH + 10, 10, 20, RED);
 
     DrawLineStrip(ADSR_points, num_points, RED);
     

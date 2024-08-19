@@ -30,8 +30,10 @@ typedef struct ADSR {
   ADSR_state_t state;
   float attack_time;
   float decay_time;
-  float sustain_level;
   float release_time;
+  float sustain_level;
+  float sustain_time;
+  float sustain_time_elapsed;
   float current_level;
 } ADSR;
 
@@ -88,4 +90,5 @@ static float getSemitoneForFrequency(float freq) {
 #define ENVELOPE_DEFAULT_ATTACK_TIME (0.1f * 5) // 100 ms
 #define ENVELOPE_DEFAULT_DECAY_TIME (0.2f * 5)  // 200 ms
 #define ENVELOPE_DEFAULT_SUSTAIN_LEVEL 0.7f // 70% of the peak amplitude
+#define ENVELOPE_DEFAULT_SUSTAIN_TIME (0.3f * 100)
 #define ENVELOPE_DEFAULT_RELEASE_TIME (0.3f * 100) // 300 ms

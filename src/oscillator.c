@@ -132,10 +132,15 @@ void updateADSR(ADSR *envelope, float delta_time) {
     if (envelope->current_level <= envelope->sustain_level) {
       envelope->current_level = envelope->sustain_level;
       envelope->state = SUSTAIN;
+      envelope->sustain_time_elapsed = 0.0f;
     }
     break;
   case SUSTAIN:
     envelope->current_level = envelope->sustain_level;
+    envelope->sustain_time_elapsed += delta_time;
+    if (envelope->sustain_time_elapsed >= envelope->sustain_time) {
+        envelope->state = RELEASE;
+    }
     break;
   case RELEASE:
     envelope->current_level -=

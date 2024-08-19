@@ -12,7 +12,7 @@ void draw_ui(Synth *synth) {
   Vector2 mouseCell = {0};
   GuiGrid((Rectangle){0, 0, SCREEN_WIDTH, SCREEN_HEIGHT}, "", SCREEN_HEIGHT / 8,
           2, &mouseCell);
-
+/** /
   GuiPanel((Rectangle){panel_x_start, panel_y_start, panel_width, panel_height},
            "");
 
@@ -149,6 +149,7 @@ void draw_ui(Synth *synth) {
       osc->shape_parameter_0 = ui_osc->shape_parameter_0;
     }
   }
+  /**/
 }
 
 void draw_signal(float *signal) {
@@ -194,17 +195,17 @@ void handle_keys(Synth *synth) {
 
         osc->envelope.state = ATTACK;
       }
+    } else if (isKeyHeld && wasKeyHeld[i] && osc->envelope.state > SUSTAIN) {
+        osc->envelope.state = SUSTAIN; // reset state
+        osc->envelope.sustain_time_elapsed = 0.0f;
     }
 
     if (!isKeyHeld && wasKeyHeld[i]) { // key was released
-      osc->envelope.state = RELEASE;   // start release
+      // state machine will fall into release
     }
 
     wasKeyHeld[i] = isKeyHeld;
 
-    if (isKeyHeld) {
-      // sustain takes care of this, no need for state change
-    }
   }
 }
 
@@ -212,7 +213,7 @@ void generateADSRPoints(ADSR envelope, Vector2 *points, int num_points, float to
     float attack_time = envelope.attack_time;
     float decay_time = envelope.decay_time;
     float release_time = envelope.release_time;
-    float sustain_time = total_time - (attack_time + decay_time + release_time);
+    float sustain_time = envelope.sustain_time;
 
     // ensure the sustain time isn't negative
     if (sustain_time < 0) sustain_time = 0;
