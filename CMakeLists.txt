@@ -36,6 +36,7 @@ add_executable(tinysynth
     src/synth.c
     3rdparty/hash.c
     src/yaml.c
+    src/ui.c
 )
 
 target_include_directories(tinysynth PRIVATE
