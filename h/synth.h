@@ -9,9 +9,11 @@ typedef struct Synth {
   OscillatorArray triangleOsc;
   OscillatorArray squareOsc;
   OscillatorArray roundedSquareOsc;
+  OscillatorArray keyOscillators;
   float *signal;
   size_t signal_length;
   float audio_frame_duration;
+  float delta_time_last_frame;
 
   UIOscillator ui_oscillator[MAX_UI_OSCILLATORS];
   size_t ui_oscillator_count;

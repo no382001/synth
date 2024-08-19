@@ -1,3 +1,4 @@
+#include "assert.h"
 #include "raylib.h"
 #include <math.h>
 #include <stdio.h>
@@ -13,6 +14,13 @@
 #define WAVE_SHAPE_OPTIONS "None;Sine;Sawtooth;Square;Triangle;Rounded Square"
 
 #include "synth.h"
+
+static ADSR defaultEnvelope = {.attack_time = DEFAULT_ATTACK_TIME,
+                               .decay_time = DEFAULT_DECAY_TIME,
+                               .sustain_level = DEFAULT_SUSTAIN_LEVEL,
+                               .release_time = DEFAULT_RELEASE_TIME,
+                               .current_level = 0.0f,
+                               .state = OFF};
 
 void draw_ui(Synth *synth) {
   const int panel_x_start = 0;
@@ -196,26 +204,44 @@ int keyMappings[NUM_KEYS] = {KEY_A, KEY_S,         KEY_D,         KEY_F,
 
 int semitoneOffsets[NUM_KEYS] = {-9, -7, -5, -4, -2, 0, 2, 3, 5, 7, 8, 10};
 
+bool wasKeyHeld[NUM_KEYS] = {false};
+
 void handle_keys(Synth *synth) {
   for (int i = 0; i < NUM_KEYS; i++) {
-    if (IsKeyDown(keyMappings[i])) {
+    Oscillator *osc = &synth->keyOscillators.osc[i];
 
+    bool isKeyHeld = IsKeyDown(keyMappings[i]);
+
+    if (isKeyHeld && !wasKeyHeld[i]) { // key was just pressed
       float freq = getFrequencyForSemitone(BASE_SEMITONE + semitoneOffsets[i]);
-
-      Oscillator *osc = makeOscillator(&synth->sineOsc);
-      if (osc != NULL) {
+      if (osc->envelope.state == OFF) { // start attack
         osc->freq = freq;
         osc->amplitude = 0.5f;
         osc->shape_parameter_0 = 1.0f;
+
+        osc->envelope.state = ATTACK;
       }
     }
+
+    if (!isKeyHeld && wasKeyHeld[i]) { // key was released
+      osc->envelope.state = RELEASE; // start release
+    }
+
+    wasKeyHeld[i] = isKeyHeld;
+
+    if (isKeyHeld) {
+      // sustain takes care of this, no need for state change
+    }
   }
+
+  
+      
 }
 
 int main() {
   const int screen_width = 1024;
   const int screen_height = 768;
-  InitWindow(screen_width, screen_height, "tiny");
+  InitWindow(screen_width, screen_height, "tins");
   SetTargetFPS(60);
   InitAudioDevice();
 
@@ -232,12 +258,15 @@ int main() {
   Oscillator triangleOsc[NUM_OSCILLATORS] = {0};
   Oscillator squareOsc[NUM_OSCILLATORS] = {0};
   Oscillator roundedSquareOsc[NUM_OSCILLATORS] = {0};
+  Oscillator keyOscillators[NUM_OSCILLATORS] = {0};
   float signal[STREAM_BUFFER_SIZE] = {0};
+
   Synth synth = {.sineOsc = {.osc = sineOsc, .count = 0},
                  .sawtoothOsc = {.osc = sawtoothOsc, .count = 0},
                  .triangleOsc = {.osc = triangleOsc, .count = 0},
                  .squareOsc = {.osc = squareOsc, .count = 0},
                  .roundedSquareOsc = {.osc = roundedSquareOsc, .count = 0},
+                 .keyOscillators = {.osc = keyOscillators, .count = 0},
                  .signal = signal,
                  .signal_length = STREAM_BUFFER_SIZE,
                  .audio_frame_duration = 0.0f,
@@ -249,9 +278,16 @@ int main() {
     sawtoothOsc[i].amplitude = 0.0f;
     triangleOsc[i].amplitude = 0.0f;
     squareOsc[i].amplitude = 0.0f;
+    keyOscillators[i].amplitude = 0.0f;
+  }
+
+  for (size_t i = 0; i < NUM_KEYS; i++) { // make an osc for each key
+    makeOscillator(&synth.keyOscillators);
+    synth.keyOscillators.osc[i].envelope = defaultEnvelope;
   }
 
   while (!WindowShouldClose()) {
+    synth.delta_time_last_frame = GetFrameTime();
     handleAudioStream(synth_stream, &synth);
     BeginDrawing();
     ClearBackground(BLACK);

@@ -42,4 +42,4 @@ target_include_directories(tinysynth PRIVATE ${raygui_SOURCE_DIR}/src)
 
 target_link_libraries(tinysynth m raylib)
 
-target_compile_options(tinysynth PRIVATE -Wall -Wextra -pedantic -Wno-unused-parameter)
+target_compile_options(tinysynth PRIVATE -Wall -Wextra -pedantic -Wno-unused-parameter -g)

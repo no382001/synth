@@ -1,4 +1,5 @@
 #pragma once
+#include "math.h"
 #include "raylib.h"
 #include "stddef.h"
 
@@ -17,20 +18,36 @@ typedef enum WaveShape {
   WaveShape_ROUNDEDSQUARE = 5
 } WaveShape;
 
+typedef enum ADSR_state_t {
+  OFF = 0,
+  ATTACK,
+  DECAY,
+  SUSTAIN,
+  RELEASE
+} ADSR_state_t;
+
+typedef struct ADSR {
+  ADSR_state_t state;
+  float attack_time;
+  float decay_time;
+  float sustain_level;
+  float release_time;
+  float current_level;
+} ADSR;
+
 typedef struct Oscillator {
   float phase;
   float phase_dt;
   float freq;
   float amplitude;
   float shape_parameter_0;
+  ADSR envelope;
 } Oscillator;
 
 typedef struct OscillatorArray {
   Oscillator *osc;
   size_t count;
 } OscillatorArray;
-
-typedef float (*WaveShapeFn)(const Oscillator);
 
 typedef struct UIOscillator {
   float freq;
@@ -39,12 +56,16 @@ typedef struct UIOscillator {
   WaveShape shape;
   bool is_dropdown_open;
   Rectangle shape_dropdown_rect;
-} UIOscillator;
+} UIOscillator; // used by the gui, every frame the main loop creates an
+                // oscillator based on this
 
 Oscillator *makeOscillator(OscillatorArray *oscArray);
-void clearOscillatorArray(OscillatorArray *oscArray);
 void updateOsc(Oscillator *osc, float freq_modulation);
+void updateADSR(ADSR *envelope, float delta_time);
+void clearOscillatorArray(OscillatorArray *oscArray);
 float bandlimitedRipple(float phase, float phase_dt);
+
+typedef float (*WaveShapeFn)(const Oscillator);
 
 // float (*WaveShapeFn)(const Oscillator)
 float sineShape(const Oscillator osc);
@@ -63,3 +84,8 @@ static float getSemitoneForFrequency(float freq) {
   // n = 12 × log2 (fn / 440 Hz).
   return 12.f * log2f(freq / BASE_NOTE_FREQ);
 }
+
+#define DEFAULT_ATTACK_TIME (0.1f * 5) // 100 ms
+#define DEFAULT_DECAY_TIME (0.2f * 5)  // 200 ms
+#define DEFAULT_SUSTAIN_LEVEL 0.7f // 70% of the peak amplitude
+#define DEFAULT_RELEASE_TIME (0.3f * 100) // 300 ms

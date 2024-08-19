@@ -109,3 +109,41 @@ float roundedSquareShape(const Oscillator osc) {
 
   return sample;
 }
+
+// this function advances the state machine of the envelope
+// the envelope is only used by the kb oscillators, pre initialized in main
+// they gain amplitude and state when pressed, and release state is set if released
+// TODO: refactoring
+// there is no point in having an adsr for each oscillator, make a global one
+void updateADSR(ADSR *envelope, float delta_time) {
+  switch (envelope->state) {
+  case OFF:
+    break;
+  case ATTACK:
+    envelope->current_level += delta_time / envelope->attack_time;
+    if (envelope->current_level >= 1.0f) {
+      envelope->current_level = 1.0f;
+      envelope->state = DECAY;
+    }
+    break;
+  case DECAY:
+    envelope->current_level -=
+        delta_time / envelope->decay_time * (1.0f - envelope->sustain_level);
+    if (envelope->current_level <= envelope->sustain_level) {
+      envelope->current_level = envelope->sustain_level;
+      envelope->state = SUSTAIN;
+    }
+    break;
+  case SUSTAIN:
+    envelope->current_level = envelope->sustain_level;
+    break;
+  case RELEASE:
+    envelope->current_level -=
+        delta_time / envelope->release_time * envelope->sustain_level;
+    if (envelope->current_level <= 0.0f) {
+      envelope->current_level = 0.0f;
+      envelope->state = OFF;
+    }
+    break;
+  }
+}
