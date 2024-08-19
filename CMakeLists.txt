@@ -34,11 +34,16 @@ add_executable(tinysynth
     src/main.c
     src/oscillator.c
     src/synth.c
+    3rdparty/hash.c
+    src/yaml.c
 )
 
-target_include_directories(tinysynth PRIVATE h)
-target_include_directories(tinysynth PRIVATE ${raylib_SOURCE_DIR}/src)
-target_include_directories(tinysynth PRIVATE ${raygui_SOURCE_DIR}/src)
+target_include_directories(tinysynth PRIVATE
+    h
+    ${raylib_SOURCE_DIR}/src
+    ${raygui_SOURCE_DIR}/src
+    3rdparty
+)
 
 target_link_libraries(tinysynth m raylib)
 

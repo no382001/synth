@@ -85,7 +85,7 @@ static float getSemitoneForFrequency(float freq) {
   return 12.f * log2f(freq / BASE_NOTE_FREQ);
 }
 
-#define DEFAULT_ATTACK_TIME (0.1f * 5) // 100 ms
-#define DEFAULT_DECAY_TIME (0.2f * 5)  // 200 ms
-#define DEFAULT_SUSTAIN_LEVEL 0.7f // 70% of the peak amplitude
-#define DEFAULT_RELEASE_TIME (0.3f * 100) // 300 ms
+#define ENVELOPE_DEFAULT_ATTACK_TIME (0.1f * 5) // 100 ms
+#define ENVELOPE_DEFAULT_DECAY_TIME (0.2f * 5)  // 200 ms
+#define ENVELOPE_DEFAULT_SUSTAIN_LEVEL 0.7f // 70% of the peak amplitude
+#define ENVELOPE_DEFAULT_RELEASE_TIME (0.3f * 100) // 300 ms

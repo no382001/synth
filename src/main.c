@@ -1,5 +1,6 @@
 #include "assert.h"
 #include "raylib.h"
+#include "yaml.h"
 #include <math.h>
 #include <stdio.h>
 
@@ -15,12 +16,23 @@
 
 #include "synth.h"
 
-static ADSR defaultEnvelope = {.attack_time = DEFAULT_ATTACK_TIME,
-                               .decay_time = DEFAULT_DECAY_TIME,
-                               .sustain_level = DEFAULT_SUSTAIN_LEVEL,
-                               .release_time = DEFAULT_RELEASE_TIME,
+static ADSR defaultEnvelope = {.attack_time = ENVELOPE_DEFAULT_ATTACK_TIME,
+                               .decay_time = ENVELOPE_DEFAULT_DECAY_TIME,
+                               .sustain_level = ENVELOPE_DEFAULT_SUSTAIN_LEVEL,
+                               .release_time = ENVELOPE_DEFAULT_RELEASE_TIME,
                                .current_level = 0.0f,
                                .state = OFF};
+
+static hash_t *config = NULL;
+void load_config() {
+  config = yaml_read("conf/conf.yaml");
+  if (!config) {
+    TraceLog(LOG_ERROR,"conf/conf.yaml failed to load, using default values!");
+    return;
+  }
+  hash_each(config, { TraceLog(LOG_INFO,"%s: %s\n", key, (char *)val); });
+  TraceLog(LOG_INFO,hash_get(config,"envelope.attack_time"));
+}
 
 void draw_ui(Synth *synth) {
   const int panel_x_start = 0;
@@ -196,14 +208,12 @@ void draw_signal(float *signal) {
 }
 
 #define NUM_KEYS 12
+#define BASE_SEMITONE 0 // A4 = 440 Hz
+
 int keyMappings[NUM_KEYS] = {KEY_A, KEY_S,         KEY_D,         KEY_F,
                              KEY_G, KEY_H,         KEY_J,         KEY_K,
                              KEY_L, KEY_SEMICOLON, KEY_APOSTROPHE};
-
-#define BASE_SEMITONE 0 // A4 = 440 Hz
-
 int semitoneOffsets[NUM_KEYS] = {-9, -7, -5, -4, -2, 0, 2, 3, 5, 7, 8, 10};
-
 bool wasKeyHeld[NUM_KEYS] = {false};
 
 void handle_keys(Synth *synth) {
@@ -224,7 +234,7 @@ void handle_keys(Synth *synth) {
     }
 
     if (!isKeyHeld && wasKeyHeld[i]) { // key was released
-      osc->envelope.state = RELEASE; // start release
+      osc->envelope.state = RELEASE;   // start release
     }
 
     wasKeyHeld[i] = isKeyHeld;
@@ -233,12 +243,11 @@ void handle_keys(Synth *synth) {
       // sustain takes care of this, no need for state change
     }
   }
-
-  
-      
 }
 
 int main() {
+  load_config();
+
   const int screen_width = 1024;
   const int screen_height = 768;
   InitWindow(screen_width, screen_height, "tins");
