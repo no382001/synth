@@ -7,7 +7,6 @@ CAN-DO-NOW
 - documentation
 - building for windows?
 - refactor ADSR, and oscillators
-- config files and parser
 - improve signal rendering
 - load other sounds
 - LFO and freq modulation

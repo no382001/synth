@@ -1,9 +1,9 @@
 #include "yaml.h"
 #include "stdio.h"
+#include "string.h"
 
 hash_t * yaml_read(char *file) {
   printf("file %s\n", file);
-  char* yaml = file;
   char* this_line;
   char* next_line;
   char tmp[256];
@@ -12,6 +12,7 @@ hash_t * yaml_read(char *file) {
 
   if (f == NULL) {
     perror(file);
+    return NULL;
   }
 
   hash_t *current_hash = hash_new();
@@ -34,8 +35,8 @@ hash_t * yaml_read(char *file) {
       }
     }
 
-    // check if comment
-    if (this_line[p+1] == '#') {
+    // ignore full-line comments
+    if (this_line[p] == '#') {
       continue;
     }
 
@@ -51,10 +52,9 @@ hash_t * yaml_read(char *file) {
       }
     }
 
-    // ugh c.  make sure keys don't start with "." or have double dots ".."
-    if (key[0] != '\0' && key[p-1] != '.') {
-      key[p] = '.';
-      key[p+1] = '\0';
+    // ensure keys don't start with "." or have double dots ".."
+    if (key[0] != '\0' && key[strlen(key) - 1] != '.') {
+      strcat(key, ".");
     }
 
     // get the current key
@@ -71,19 +71,23 @@ hash_t * yaml_read(char *file) {
         if (this_line[p] == ':') {
           break;
         } else {
-          //strcat(key, this_line[p]);
           len = strlen(key);
           key[len] = this_line[p];
           key[len + 1] = '\0';
-
         }
       }
     }
 
     int i = 0;
     p += 2; // scan past ": " or "- "
-    for (p = p; p < strlen(this_line); p++) {
-      if (this_line[p] == '\n') {
+
+    int comment_start = -1;
+
+    for (; p < strlen(this_line); p++) {
+      if (this_line[p] == '#') {
+        comment_start = p;
+        break;
+      } else if (this_line[p] == '\n') {
         tmp[i] = '\0';
         break;
       } else {
@@ -92,6 +96,14 @@ hash_t * yaml_read(char *file) {
       }
     }
 
+    if (comment_start != -1) {
+      // trim trailing spaces from the value before the comment
+      i--;
+      while (i >= 0 && tmp[i] == ' ') {
+        tmp[i] = '\0';
+        i--;
+      }
+    }
 
     if (0) {
       printf("line length: %zu", strlen(this_line));
@@ -100,19 +112,16 @@ hash_t * yaml_read(char *file) {
       printf(", value: '%s'", tmp);
     }
 
-    char *hashkey;
-    hashkey = malloc(sizeof(char) * strlen(key));
+    char *hashkey = malloc(sizeof(char) * (strlen(key) + 1));
     strcpy(hashkey, key);
 
-    char *hashval;
-    hashval = malloc(sizeof(char) * strlen(tmp));
+    char *hashval = malloc(sizeof(char) * (strlen(tmp) + 1));
     strcpy(hashval, tmp);
 
     if (strcmp(tmp, "") != 0) {
       hash_set(current_hash, hashkey, hashval);
     }
   }
+  fclose(f);
   return current_hash;
 }
-
-

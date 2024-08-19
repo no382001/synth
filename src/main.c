@@ -24,14 +24,33 @@ static ADSR defaultEnvelope = {.attack_time = ENVELOPE_DEFAULT_ATTACK_TIME,
                                .state = OFF};
 
 static hash_t *config = NULL;
+
+// takes a hash_t and if the value is proper sets it to the reference
+static void hash_get_and_set_float(hash_t *h, char *cs, float* f) {
+  char *str = hash_get(config, cs);
+  char *eptr;
+
+  float num = strtof(str, &eptr);
+
+  if (*eptr == '\0') {
+    *f = num;
+  } else {
+    TraceLog(LOG_ERROR, "%s could not be converted to float, ignoring",cs);
+  }
+}
+
 void load_config() {
   config = yaml_read("conf/conf.yaml");
   if (!config) {
-    TraceLog(LOG_ERROR,"conf/conf.yaml failed to load, using default values!");
+    TraceLog(LOG_ERROR, "conf/conf.yaml failed to load, using default values!");
     return;
   }
-  hash_each(config, { TraceLog(LOG_INFO,"%s: %s\n", key, (char *)val); });
-  TraceLog(LOG_INFO,hash_get(config,"envelope.attack_time"));
+  hash_each(config, { TraceLog(LOG_INFO, "%s: %s\n", key, (char *)val); });
+
+  hash_get_and_set_float(config,"envelope.attack_time",&defaultEnvelope.attack_time);
+  hash_get_and_set_float(config,"envelope.decay_time",&defaultEnvelope.decay_time);
+  hash_get_and_set_float(config,"envelope.sustain_level",&defaultEnvelope.sustain_level);
+  hash_get_and_set_float(config,"envelope.release_time",&defaultEnvelope.release_time);
 }
 
 void draw_ui(Synth *synth) {

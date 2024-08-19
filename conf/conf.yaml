@@ -1,8 +1,6 @@
-screen:
-  width: 1024
-  height: 768
 envelope:
-  attack_time: 0.5 # this is a comment
+# this is a line comment
+  attack_time: 0.5 # this is an eol comment
   decay_time: 1.0
   sustain_level: 0.7
   release_time: 30.0
