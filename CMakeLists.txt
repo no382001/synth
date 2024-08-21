@@ -46,6 +46,10 @@ target_include_directories(tinysynth PRIVATE
     3rdparty
 )
 
-target_link_libraries(tinysynth m raylib)
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    target_link_libraries(tinysynth m raylib)
+else()
+    target_link_libraries(tinysynth m raylib winmm)
+endif()
 
 target_compile_options(tinysynth PRIVATE -Wall -Wextra -pedantic -Wno-unused-parameter -g)
