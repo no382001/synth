@@ -47,15 +47,19 @@ void load_config() {
   hash_get_and_set_float(config,"envelope.sustain_level",&defaultEnvelope.sustain_level);
   hash_get_and_set_float(config,"envelope.sustain_time",&defaultEnvelope.sustain_time);
   hash_get_and_set_float(config,"envelope.release_time",&defaultEnvelope.release_time);
+
+  hash_free(config);
+  config = NULL;
 }
 
-const int num_points = 1000;
-static Vector2 ADSR_points[1000];
+#define  ADSR_VIZ_NUM_POINTS 200
+static Vector2 ADSR_points[ADSR_VIZ_NUM_POINTS];
 
 int main() {
   load_config();
+
   float total_time = defaultEnvelope.attack_time + defaultEnvelope.decay_time + defaultEnvelope.release_time + defaultEnvelope.sustain_time;
-  generateADSRPoints(defaultEnvelope, ADSR_points, num_points, total_time);
+  generateADSRPoints(defaultEnvelope, ADSR_points, ADSR_VIZ_NUM_POINTS, total_time);
 
   const int screen_width = 1024;
   const int screen_height = 768;
@@ -71,33 +75,13 @@ int main() {
   SetAudioStreamVolume(synth_stream, 0.01f);
   PlayAudioStream(synth_stream);
 
-  Oscillator sineOsc[NUM_OSCILLATORS] = {0};
-  Oscillator sawtoothOsc[NUM_OSCILLATORS] = {0};
-  Oscillator triangleOsc[NUM_OSCILLATORS] = {0};
-  Oscillator squareOsc[NUM_OSCILLATORS] = {0};
-  Oscillator roundedSquareOsc[NUM_OSCILLATORS] = {0};
-  Oscillator keyOscillators[NUM_OSCILLATORS] = {0};
+  Oscillator keyOscillators[NUM_KEYS] = {0};
   float signal[STREAM_BUFFER_SIZE] = {0};
 
-  Synth synth = {.sineOsc = {.osc = sineOsc, .count = 0},
-                 .sawtoothOsc = {.osc = sawtoothOsc, .count = 0},
-                 .triangleOsc = {.osc = triangleOsc, .count = 0},
-                 .squareOsc = {.osc = squareOsc, .count = 0},
-                 .roundedSquareOsc = {.osc = roundedSquareOsc, .count = 0},
-                 .keyOscillators = {.osc = keyOscillators, .count = 0},
+  Synth synth = {.keyOscillators = {.osc = keyOscillators, .count = 0},
                  .signal = signal,
                  .signal_length = STREAM_BUFFER_SIZE,
-                 .audio_frame_duration = 0.0f,
-                 .ui_oscillator_count = 0};
-
-  // set oscillator amplitudes.
-  for (size_t i = 0; i < NUM_OSCILLATORS; i++) {
-    sineOsc[i].amplitude = 0.0f;
-    sawtoothOsc[i].amplitude = 0.0f;
-    triangleOsc[i].amplitude = 0.0f;
-    squareOsc[i].amplitude = 0.0f;
-    keyOscillators[i].amplitude = 0.0f;
-  }
+                 .audio_frame_duration = 0.0f};
 
   for (size_t i = 0; i < NUM_KEYS; i++) { // make an osc for each key
     makeOscillator(&synth.keyOscillators);
@@ -114,7 +98,7 @@ int main() {
     handle_keys(&synth);
     draw_signal(signal);
 
-    DrawLineStrip(ADSR_points, num_points, RED);
+    DrawLineStrip(ADSR_points, ADSR_VIZ_NUM_POINTS, RED);
     
     EndDrawing();
   }

@@ -5,8 +5,6 @@ FAR-FETCHED
 
 CAN-DO-NOW
 - documentation
-- building for windows?
-- refactor ADSR, and oscillators
 - improve signal rendering
 - load other sounds
 - LFO and freq modulation

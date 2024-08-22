@@ -9,15 +9,6 @@
 #define NUM_OSCILLATORS 32
 #define BASE_NOTE_FREQ 440
 
-typedef enum WaveShape {
-  WaveShape_NONE = 0,
-  WaveShape_SINE = 1,
-  WaveShape_SAWTOOTH = 2,
-  WaveShape_SQUARE = 3,
-  WaveShape_TRIANGLE = 4,
-  WaveShape_ROUNDEDSQUARE = 5
-} WaveShape;
-
 typedef enum ADSR_state_t {
   OFF = 0,
   ATTACK,
@@ -50,16 +41,6 @@ typedef struct OscillatorArray {
   Oscillator *osc;
   size_t count;
 } OscillatorArray;
-
-typedef struct UIOscillator {
-  float freq;
-  float amplitude;
-  float shape_parameter_0;
-  WaveShape shape;
-  bool is_dropdown_open;
-  Rectangle shape_dropdown_rect;
-} UIOscillator; // used by the gui, every frame the main loop creates an
-                // oscillator based on this
 
 Oscillator *makeOscillator(OscillatorArray *oscArray);
 void updateOsc(Oscillator *osc, float freq_modulation);

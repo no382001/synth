@@ -52,4 +52,4 @@ else()
     target_link_libraries(tinysynth m raylib winmm)
 endif()
 
-target_compile_options(tinysynth PRIVATE -Wall -Wextra -pedantic -Wno-unused-parameter -g)
+target_compile_options(tinysynth PRIVATE -Wall -Wextra -pedantic -g)

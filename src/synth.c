@@ -30,7 +30,6 @@ void updateOscArray(WaveShapeFn base_osc_shape_fn, Synth *synth,
 }
 
 void handleAudioStream(AudioStream stream, Synth *synth) {
-  float audio_frame_duration = 0.0f;
 
   if (IsAudioStreamProcessed(stream)) {
     const float audio_frame_start_time = GetTime();
@@ -39,11 +38,6 @@ void handleAudioStream(AudioStream stream, Synth *synth) {
     zeroSignal(synth->signal);
 
     // update each oscillator array and generate their respective waveforms
-    updateOscArray(&sineShape, synth, synth->sineOsc);
-    updateOscArray(&sawtoothShape, synth, synth->sawtoothOsc);
-    updateOscArray(&triangleShape, synth, synth->triangleOsc);
-    updateOscArray(&squareShape, synth, synth->squareOsc);
-    updateOscArray(&roundedSquareShape, synth, synth->roundedSquareOsc);
     updateOscArray(&sineShape, synth, synth->keyOscillators);
 
     UpdateAudioStream(stream, synth->signal, synth->signal_length);
