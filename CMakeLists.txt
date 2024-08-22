@@ -6,6 +6,8 @@ project(tinysynth VERSION 1.0)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED True)
 
+set(FETCHCONTENT_BASE_DIR "${CMAKE_BINARY_DIR}/_deps")
+
 include(FetchContent)
 set(FETCHCONTENT_QUIET FALSE)
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE) # don't build the supplied examples

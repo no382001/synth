@@ -10,7 +10,7 @@
 #include "synth.h"
 #include "ui.h"
 
-static ADSR defaultEnvelope = {.attack_time = ENVELOPE_DEFAULT_ATTACK_TIME,
+ADSR defaultEnvelope = {.attack_time = ENVELOPE_DEFAULT_ATTACK_TIME,
                                .decay_time = ENVELOPE_DEFAULT_DECAY_TIME,
                                .sustain_level = ENVELOPE_DEFAULT_SUSTAIN_LEVEL,
                                .release_time = ENVELOPE_DEFAULT_RELEASE_TIME,
@@ -52,14 +52,13 @@ void load_config() {
   config = NULL;
 }
 
-#define  ADSR_VIZ_NUM_POINTS 200
-static Vector2 ADSR_points[ADSR_VIZ_NUM_POINTS];
-
+Vector2 ADSR_points[ADSR_VIZ_NUM_POINTS];
+extern Rectangle ui_adsr_pos;
 int main() {
   load_config();
 
   float total_time = defaultEnvelope.attack_time + defaultEnvelope.decay_time + defaultEnvelope.release_time + defaultEnvelope.sustain_time;
-  generateADSRPoints(defaultEnvelope, ADSR_points, ADSR_VIZ_NUM_POINTS, total_time);
+  generateADSRPoints(defaultEnvelope, ADSR_points, ADSR_VIZ_NUM_POINTS, total_time, ui_adsr_pos);
 
   const int screen_width = 1024;
   const int screen_height = 768;
@@ -96,9 +95,6 @@ int main() {
 
     draw_ui(&synth);
     handle_keys(&synth);
-    draw_signal(signal);
-
-    DrawLineStrip(ADSR_points, ADSR_VIZ_NUM_POINTS, RED);
     
     EndDrawing();
   }
