@@ -1,6 +1,5 @@
 #pragma once
 #include "math.h"
-#include "raylib.h"
 #include "stddef.h"
 
 #define SAMPLE_RATE 44100

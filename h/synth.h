@@ -15,4 +15,3 @@ void zeroSignal(float *signal);
 
 void updateOscArray(WaveShapeFn base_osc_shape_fn, Synth *synth,
                     OscillatorArray osc_array);
-void handleAudioStream(AudioStream stream, Synth *synth);

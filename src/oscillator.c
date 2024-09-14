@@ -1,5 +1,5 @@
 #include "oscillator.h"
-#include "math.h"
+#include <math.h>
 
 Oscillator *makeOscillator(OscillatorArray *oscArray) {
   // add a new osc to the array
@@ -49,7 +49,7 @@ float bandlimitedRipple(float phase, float phase_dt) {
 }
 
 // float (*WaveShapeFn)(const Oscillator)
-float sineShape(const Oscillator osc) { return sinf(2.f * PI * osc.phase); }
+float sineShape(const Oscillator osc) { return sinf(2.f * M_PI * osc.phase); }
 
 // float (*WaveShapeFn)(const Oscillator)
 float sawtoothShape(const Oscillator osc) {
@@ -99,7 +99,7 @@ float roundedSquareShape(const Oscillator osc) {
   // 'osc.phase * PI * 2' converts the phase to radians (0 to 2π)
   // 'sinf(osc.phase * PI * 2)' produces a value that oscillates between -1 and
   // 1 multiplying by 's' scales the oscillation
-  float power = s * sinf(osc.phase * PI * 2);
+  float power = s * sinf(osc.phase * M_PI * 2);
 
   float denominator = powf(base, power) + 1.f;
 

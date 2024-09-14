@@ -28,20 +28,3 @@ void updateOscArray(WaveShapeFn base_osc_shape_fn, Synth *synth,
     }
   }
 }
-
-void handleAudioStream(AudioStream stream, Synth *synth) {
-
-  if (IsAudioStreamProcessed(stream)) {
-    const float audio_frame_start_time = GetTime();
-
-    // clear the existing audio signal buffer
-    zeroSignal(synth->signal);
-
-    // update each oscillator array and generate their respective waveforms
-    updateOscArray(&sineShape, synth, synth->keyOscillators);
-
-    UpdateAudioStream(stream, synth->signal, synth->signal_length);
-
-    synth->audio_frame_duration = GetTime() - audio_frame_start_time;
-  }
-}
