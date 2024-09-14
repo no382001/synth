@@ -10,13 +10,14 @@ namespace eval networking {
     
     proc try_connect {address port} {
         variable sock
+        global log
 
         while {1} {
             if { [catch {socket $address $port} sock] } {
-                puts "failed to connect to $address:$port, retrying in 2 seconds..."
+                ${log}::notice "failed to connect to $address:$port, retrying in 2 seconds..."
                 after 2000
             } else {
-                puts "connected to $address:$port!"
+                ${log}::notice "connected to $address:$port!"
                 break
             }
         }
@@ -28,14 +29,15 @@ namespace eval networking {
         variable server_address
         variable server_port
         variable sock
+        global log
 
         set sock [try_connect $server_address $server_port]
 
         if {$sock ne ""} {
             fconfigure $sock -blocking 0
-            puts "connection successful, socket configured as non-blocking."
+            ${log}::notice "connection successful, socket configured as non-blocking."
         } else {
-            puts "failed to connect."
+            ${log}::error "failed to connect."
         }
         
         # its like select() in c
@@ -63,16 +65,17 @@ namespace eval networking {
 
     proc receive_data {} {
         variable sock
+        global log
         if {[eof $sock]} {
             close $sock
-            puts "Connection closed by server"
+            ${log}::notice "connection closed by server"
             return
         }
 
         set data [read $sock]
 
         set myDataVariable $data
-        puts "Received data: $data"
+        ${log}::debug "received data: $data"
     }
 
 }

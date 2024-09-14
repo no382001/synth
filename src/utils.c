@@ -1,9 +1,6 @@
 #include "utils.h"
-
-
+#include <time.h>
 static LogLevel current_log_level = DEBUG;
-
-static LogState last_log = {.file = "", .line = -1, .message = ""};
 
 static char *log_lvl_to_str(LogLevel l) {
   switch (l) {
@@ -30,32 +27,16 @@ void log_message_impl(LogLevel level, const char *file, int line,
   va_start(args, format);
   vsnprintf(current_message, sizeof(current_message), format, args);
   va_end(args);
-#ifndef NULL
-  // current message is the same as the last one
-  if (strcmp(last_log.file, file) == 0 && last_log.line == line) {
-    last_log.repeat++;
-    return;
-  } else if (last_log.repeat != 0) { // not the first
 
-    // print the prev message and the repeat count
-    const char *level_str = log_lvl_to_str(last_log.level);
-    size_t len = strlen(last_log.message);
-    if (len > 0 && last_log.message[len - 1] == '\n') {
-      last_log.message[len - 1] = '\0';
-    }
-    printf("%s%s:%d: %s \t[repeats x%d times]\n", level_str, last_log.file,
-           last_log.line, last_log.message, last_log.repeat);
-  }
+    char time_str[100];
+    time_t now = time(NULL);
+    struct tm *local_time = localtime(&now);
+    strftime(time_str, sizeof(time_str), "[%a %b %d %H:%M:%S %Z %Y]", local_time);
 
-  last_log.line = line;
-  last_log.level = level;
-  last_log.repeat = 0;
-  last_log.file = file;
-  strncpy(last_log.message, current_message, sizeof(last_log.message) - 1);
-#endif
-  const char *level_str = log_lvl_to_str(level);
+    const char *level_str = log_lvl_to_str(level);
 
-  printf("%s%s:%d: %s", level_str, file, line, current_message);
+    printf("%s %s%s:%d: %s", time_str, level_str, file, line, current_message);
+
 }
 
 void set_log_level(LogLevel level) { current_log_level = level; }

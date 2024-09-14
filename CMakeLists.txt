@@ -12,6 +12,7 @@ add_executable(tinysynth
     3rdparty/hash.c
     src/yaml.c
     src/utils.c
+    src/networking.c
 )
 
 string(LENGTH "${CMAKE_SOURCE_DIR}/" SOURCE_PATH_SIZE)

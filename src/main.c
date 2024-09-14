@@ -97,7 +97,7 @@ void init_audio(ma_device *device) {
 
   result = ma_device_init(NULL, &config, device);
   if (result != MA_SUCCESS) {
-    printf("failed to initialize playback device.\n");
+    log_message(ERROR,"failed to initialize playback device.\n");
     exit(1);
   }
 }
@@ -106,7 +106,7 @@ void tcl_thread(void) {
   Tcl_Interp *interp = Tcl_CreateInterp();
 
   if (Tcl_Init(interp) == TCL_ERROR || Tk_Init(interp) == TCL_ERROR) {
-    fprintf(stderr, "tcl/tk initialization failed: %s\n",
+    log_message(ERROR,"tcl/tk initialization failed: %s\n",
             Tcl_GetStringResult(interp));
     exit(1);
   }
@@ -126,116 +126,8 @@ void tcl_thread(void) {
   Tcl_DeleteInterp(interp);
 }
 
-#define PORT 5000
-#define BUFFER_SIZE 1024
 
-void set_nonblocking(int sockfd) {
-    int flags = fcntl(sockfd, F_GETFL, 0);
-    fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
-}
-
-void networking_thread(void) {
-  int server_fd;
-  int client_fd = -1;
-
-  struct sockaddr_in server_addr, client_addr;
-  socklen_t client_len;
-  char buffer[BUFFER_SIZE];
-
-  if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-    error("creating socket failed");
-    exit(1);
-  }
-
-  server_addr.sin_family = AF_INET;
-  server_addr.sin_addr.s_addr = INADDR_ANY;
-  server_addr.sin_port = htons(PORT);
-
-  // bind socket to port
-  if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) <
-      0) {
-    close(server_fd);
-    error("bind failed");
-    exit(1);
-  }
-
-  // incoming connections
-  if (listen(server_fd, 3) < 0) {
-    error("listen failed");
-    exit(1);
-  }
-
-  printf("server listening on port %d...\n", PORT);
-
-  // socket to non-blocking mode
-  set_nonblocking(server_fd);
-
-  fd_set readfds;
-  while (1) {
-    // clear the set of read file descriptors
-    FD_ZERO(&readfds);
-
-    // add the server socket to the set
-    FD_SET(server_fd, &readfds);
-    int max_sd = server_fd;
-
-    // add any existing client socket to the set
-    if (client_fd > 0) {
-      FD_SET(client_fd, &readfds);
-      if (client_fd > max_sd) {
-        max_sd = client_fd;
-      }
-    }
-
-    // set timeout to 1 second
-    struct timeval timeout;
-    timeout.tv_sec = 1;
-    timeout.tv_usec = 0;
-
-    // wait for an activity on one of the sockets
-    int activity = select(max_sd + 1, &readfds, NULL, NULL, &timeout);
-
-    if (activity < 0 && errno != EINTR) {
-      error("select error");
-      exit(1);
-    }
-
-    // incoming connection
-    if (FD_ISSET(server_fd, &readfds)) {
-      client_len = sizeof(client_addr);
-      if ((client_fd = accept(server_fd, (struct sockaddr *)&client_addr,
-                              &client_len)) < 0) {
-        perror("accept failed");
-      } else {
-        printf("client connected!\n");
-        set_nonblocking(
-            client_fd); // make the client socket non-blocking as well
-      }
-    }
-
-    // check if the client has sent data
-    if (client_fd > 0 && FD_ISSET(client_fd, &readfds)) {
-      memset(buffer, 0, BUFFER_SIZE);
-      int valread = read(client_fd, buffer, BUFFER_SIZE);
-
-      if (valread > 0) {
-        printf("message from tcl: %s\n", buffer);
-
-        // send a response back to Tcl
-        char response[] = "Hello from C!\n";
-        send(client_fd, response, strlen(response), 0);
-        printf("Sent response: %s\n", response);
-      } else if (valread == 0) {
-        // client has disconnected
-        printf("client disconnected.\n");
-        close(client_fd);
-        client_fd = -1; // reset the client_fd
-      }
-    }
-  }
-
-  close(server_fd);
-}
+void networking_thread(void);
 
 int main() {
   load_config();
