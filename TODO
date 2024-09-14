@@ -8,3 +8,9 @@ CAN-DO-NOW
 - improve signal rendering
 - load other sounds
 - LFO and freq modulation
+
+INTERGRATION:
+- tk can handle key inputs
+- tk can display and modify adsr
+- tk can display waveform
+- tk and c comms thru sockets

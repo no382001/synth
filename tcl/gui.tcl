@@ -169,6 +169,3 @@ proc update_waveform {} {
 
     after 25 update_waveform
 }
-
-draw_adsr
-update_waveform
