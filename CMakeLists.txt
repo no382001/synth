@@ -13,6 +13,7 @@ add_executable(tinysynth
     src/yaml.c
     src/utils.c
     src/networking.c
+    src/commands.c
 )
 
 string(LENGTH "${CMAKE_SOURCE_DIR}/" SOURCE_PATH_SIZE)

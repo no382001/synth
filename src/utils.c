@@ -35,7 +35,7 @@ void log_message_impl(LogLevel level, const char *file, int line,
 
     const char *level_str = log_lvl_to_str(level);
 
-    printf("%s %s%s:%d: %s", time_str, level_str, file, line, current_message);
+    printf("%s %s%s:%d: %s\n", time_str, level_str, file, line, current_message);
 
 }
 

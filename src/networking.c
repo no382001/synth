@@ -1,21 +1,24 @@
 #include <arpa/inet.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <sys/select.h>
-#include <errno.h>
 #include <stdlib.h>
+#include <sys/select.h>
 
+#include "hash.h"
 #include "utils.h"
+#include "commands.h"
 
 #define PORT 5000
 #define BUFFER_SIZE 1024
 
 void set_nonblocking(int sockfd) {
-    int flags = fcntl(sockfd, F_GETFL, 0);
-    fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
+  int flags = fcntl(sockfd, F_GETFL, 0);
+  fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
 }
 
 void networking_thread(void) {
+
   int server_fd;
   int client_fd = -1;
 
@@ -24,7 +27,14 @@ void networking_thread(void) {
   char buffer[BUFFER_SIZE];
 
   if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-    log_message(ERROR,"creating socket failed");
+    log_message(ERROR, "creating socket failed");
+    exit(1);
+  }
+
+  int opt = 1;
+  if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+    log_message(ERROR, "setsockopt(SO_REUSEADDR) failed");
+    close(server_fd);
     exit(1);
   }
 
@@ -36,23 +46,27 @@ void networking_thread(void) {
   if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) <
       0) {
     close(server_fd);
-    log_message(ERROR,"bind failed");
+    log_message(ERROR, "bind failed");
     exit(1);
   }
 
   // incoming connections
   if (listen(server_fd, 3) < 0) {
-    log_message(ERROR,"listen failed");
+    log_message(ERROR, "listen failed");
     exit(1);
   }
 
-  log_message(INFO,"c server listening on port %d...\n", PORT);
+  log_message(INFO, "c server listening on port %d...", PORT);
 
   // socket to non-blocking mode
   set_nonblocking(server_fd);
 
   fd_set readfds;
   while (1) {
+    // -------------------------
+    // accept data from socket
+    // -------------------------
+
     // clear the set of read file descriptors
     FD_ZERO(&readfds);
 
@@ -77,7 +91,7 @@ void networking_thread(void) {
     int activity = select(max_sd + 1, &readfds, NULL, NULL, &timeout);
 
     if (activity < 0 && errno != EINTR) {
-      log_message(ERROR,"select error");
+      log_message(ERROR, "select error");
       exit(1);
     }
 
@@ -86,9 +100,9 @@ void networking_thread(void) {
       client_len = sizeof(client_addr);
       if ((client_fd = accept(server_fd, (struct sockaddr *)&client_addr,
                               &client_len)) < 0) {
-        log_message(ERROR,"accept failed");
+        log_message(ERROR, "accept failed");
       } else {
-        log_message(INFO,"client connected!\n");
+        log_message(INFO, "client connected!");
         set_nonblocking(
             client_fd); // make the client socket non-blocking as well
       }
@@ -100,15 +114,32 @@ void networking_thread(void) {
       int valread = read(client_fd, buffer, BUFFER_SIZE);
 
       if (valread > 0) {
-        log_message(DEBUG,"message from tcl: %s\n", buffer);
+        size_t len = strlen(buffer);
+        if (len > 0 && (buffer[len - 1] == '\n' || buffer[len - 1] == '\r')) {
+          buffer[len - 1] = '\0';
+        }
+        log_message(DEBUG, "message from tcl: ->%s<-", buffer);
 
-        // send a response back to Tcl
-        char response[] = "Hello from C!\n";
-        send(client_fd, response, strlen(response), 0);
-        log_message(DEBUG,"sent response: %s\n", response);
+        // -------------------------
+        // do something w/ that
+        // -------------------------
+
+        char head[50], tail[50] = {NULL};
+        if (sscanf(buffer, "%s %s", head, tail) != 2) {
+          log_message(ERROR, "invalid command format: ->%s<-", buffer);
+          continue;
+        }
+
+        command_fn f = find_function_by_command(head);
+        if (f != NULL) {
+          f(tail);
+        } else {
+          log_message(ERROR, "invalid command: ->%s<-", head);
+        }
+
       } else if (valread == 0) {
         // client has disconnected
-        log_message(INFO,"client disconnected.\n");
+        log_message(INFO, "client disconnected.");
         close(client_fd);
         client_fd = -1; // reset the client_fd
       }

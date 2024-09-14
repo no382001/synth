@@ -1,27 +1,28 @@
-
 namespace eval networking {
+    
     variable server_address "localhost"
     variable server_port 5000
     variable sock ""
+    array set key_states {}
+
+    set debounce_time 100
 
     # ----------------------------
     # connecting
     # ----------------------------
-    
     proc try_connect {address port} {
         variable sock
         global log
 
         while {1} {
             if { [catch {socket $address $port} sock] } {
-                ${log}::notice "failed to connect to $address:$port, retrying in 2 seconds..."
+                ${log}::notice "Failed to connect to $address:$port, retrying in 2 seconds..."
                 after 2000
             } else {
-                ${log}::notice "connected to $address:$port!"
+                ${log}::notice "Connected to $address:$port!"
                 break
             }
         }
-
         return $sock
     }
 
@@ -35,47 +36,101 @@ namespace eval networking {
 
         if {$sock ne ""} {
             fconfigure $sock -blocking 0
-            ${log}::notice "connection successful, socket configured as non-blocking."
+            ${log}::notice "Connection successful, socket configured as non-blocking."
         } else {
-            ${log}::error "failed to connect."
+            ${log}::error "Failed to connect."
         }
-        
-        # its like select() in c
-        fileevent $sock readable receive_data
+
+        fileevent $sock readable networking::receive_data
     }
 
     # ----------------------------
-    # sending
+    # sending key press/release
     # ----------------------------
-
-    proc send_keypress {key} {
+    proc send_key {key action} {
         variable sock
-
-        puts $sock $key
-        flush $sock
-    }
-
-    bind . <KeyPress> {
-        send_keypress %A
+        global log
+        if {$sock ne ""} {
+            set msg "$action $key"
+            ${log}::notice "sent: $msg"
+            puts -nonewline $sock $msg
+            flush $sock
+        } else {
+            ${log}::error "socket is not available."
+        }
     }
 
     # ----------------------------
-    # receiving
+    # key press
     # ----------------------------
+    proc handle_keypress {key} {
+        variable key_states
+        global log
+        variable debounce_time
 
+        if {[info exists key_states(${key}_timeout)]} {
+            after cancel $key_states(${key}_timeout)
+            unset key_states(${key}_timeout)
+        }
+
+        # if key is not currently pressed, mark it as pressed and send "set"
+        if {![info exists key_states($key)] || $key_states($key) == "released"} {
+            set key_states($key) "pressed"
+            networking::send_key $key "set"
+        }
+    }
+
+    # ----------------------------
+    # handle autorepeat
+    # ----------------------------
+    proc handle_keyrelease {key} {
+        variable key_states
+        global log
+        variable debounce_time
+
+        # only process the release after a debounce time, and cancel if pressed again before the timeout
+        set key_states(${key}_timeout) [after $debounce_time [list networking::process_keyrelease $key]]
+    }
+
+    # ----------------------------
+    # key release
+    # ----------------------------
+    proc process_keyrelease {key} {
+        variable key_states
+        global log
+
+        # only process release if key is still pressed
+        if {[info exists key_states($key)] && $key_states($key) == "pressed"} {
+            set key_states($key) "released"
+            unset key_states(${key}_timeout)
+            networking::send_key $key "res"
+        }
+    }
+
+    # ----------------------------
+    # receiving data
+    # ----------------------------
     proc receive_data {} {
         variable sock
         global log
         if {[eof $sock]} {
             close $sock
-            ${log}::notice "connection closed by server"
-            return
+            ${log}::notice "Connection closed by server."
+            networking::connect
         }
 
         set data [read $sock]
-
-        set myDataVariable $data
-        ${log}::debug "received data: $data"
+        ${log}::debug "Received data: $data"
     }
 
+    # ----------------------------
+    # bindings
+    # ----------------------------
+    bind . <KeyPress> {
+        networking::handle_keypress %K
+    }
+
+    bind . <KeyRelease> {
+        networking::handle_keyrelease %K
+    }
 }

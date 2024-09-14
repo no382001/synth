@@ -46,7 +46,7 @@ void load_config() {
     log_message(ERROR, "conf/conf.yaml failed to load, using default values!");
     return;
   }
-  hash_each(config, { log_message(INFO, "%s: %s\n", key, (char *)val); });
+  hash_each(config, { log_message(INFO, "%s: %s", key, (char *)val); });
 
   hash_get_and_set_float(config, "envelope.attack_time",
                          &defaultEnvelope.attack_time);
@@ -97,7 +97,7 @@ void init_audio(ma_device *device) {
 
   result = ma_device_init(NULL, &config, device);
   if (result != MA_SUCCESS) {
-    log_message(ERROR,"failed to initialize playback device.\n");
+    log_message(ERROR,"failed to initialize playback device.");
     exit(1);
   }
 }
@@ -106,7 +106,7 @@ void tcl_thread(void) {
   Tcl_Interp *interp = Tcl_CreateInterp();
 
   if (Tcl_Init(interp) == TCL_ERROR || Tk_Init(interp) == TCL_ERROR) {
-    log_message(ERROR,"tcl/tk initialization failed: %s\n",
+    log_message(ERROR,"tcl/tk initialization failed: %s",
             Tcl_GetStringResult(interp));
     exit(1);
   }
@@ -125,7 +125,6 @@ void tcl_thread(void) {
 
   Tcl_DeleteInterp(interp);
 }
-
 
 void networking_thread(void);
 
@@ -148,12 +147,12 @@ int main() {
     o->envelope = defaultEnvelope;
   }
 
-  pthread_t tcl_interpreter;
-  pthread_create(&tcl_interpreter, NULL, tcl_thread, NULL);
+  //pthread_t tcl_interpreter;
+  //pthread_create(&tcl_interpreter, NULL, tcl_thread, NULL);
 
   networking_thread();
   
-  pthread_join(tcl_interpreter, NULL);
+  //pthread_join(tcl_interpreter, NULL);
 
   return 0;
 }
