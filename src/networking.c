@@ -118,7 +118,7 @@ void networking_thread(void) {
         if (len > 0 && (buffer[len - 1] == '\n' || buffer[len - 1] == '\r')) {
           buffer[len - 1] = '\0';
         }
-        log_message(DEBUG, "message from tcl: ->%s<-", buffer);
+        //log_message(DEBUG, "message from tcl: ->%s<-", buffer);
 
         // -------------------------
         // do something w/ that

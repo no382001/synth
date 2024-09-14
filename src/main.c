@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <sys/select.h>
 
+#include "commands.h"
 #include "synth.h"
 #include "utils.h"
 #include "yaml.h"
@@ -28,7 +29,7 @@ static hash_t *config = NULL;
 
 // takes a hash_t and if the value is proper sets it to the reference
 static void hash_get_and_set_float(hash_t *h, char *cs, float *f) {
-  char *str = hash_get(config, cs);
+  char *str = hash_get(h, cs);
   char *eptr;
 
   float num = strtof(str, &eptr);
@@ -63,9 +64,6 @@ void load_config() {
   config = NULL;
 }
 
-#define SAMPLE_RATE 44100
-#define NUM_KEYS 12
-
 Synth *g_synth = NULL;
 
 void audio_cb(ma_device *pDevice, void *pOutput, const void *pInput,
@@ -76,9 +74,6 @@ void audio_cb(ma_device *pDevice, void *pOutput, const void *pInput,
     return;
 
   float *out = (float *)pOutput;
-
-  zeroSignal(g_synth->signal);
-  updateOscArray(&sineShape, g_synth, g_synth->keyOscillators);
 
   for (ma_uint32 i = 0; i < frameCount; i++) {
     out[i] = g_synth->signal[i];
@@ -97,7 +92,7 @@ void init_audio(ma_device *device) {
 
   result = ma_device_init(NULL, &config, device);
   if (result != MA_SUCCESS) {
-    log_message(ERROR,"failed to initialize playback device.");
+    log_message(ERROR, "failed to initialize playback device.");
     exit(1);
   }
 }
@@ -106,8 +101,8 @@ void tcl_thread(void) {
   Tcl_Interp *interp = Tcl_CreateInterp();
 
   if (Tcl_Init(interp) == TCL_ERROR || Tk_Init(interp) == TCL_ERROR) {
-    log_message(ERROR,"tcl/tk initialization failed: %s",
-            Tcl_GetStringResult(interp));
+    log_message(ERROR, "tcl/tk initialization failed: %s",
+                Tcl_GetStringResult(interp));
     exit(1);
   }
 
@@ -133,6 +128,7 @@ int main() {
 
   ma_device device;
   init_audio(&device);
+  ma_device_start(&device);
 
   Oscillator keyOscillators[NUM_KEYS] = {0};
   float signal[STREAM_BUFFER_SIZE] = {0};
@@ -147,12 +143,28 @@ int main() {
     o->envelope = defaultEnvelope;
   }
 
-  //pthread_t tcl_interpreter;
-  //pthread_create(&tcl_interpreter, NULL, tcl_thread, NULL);
+  pthread_t netw;
+  pthread_create(&netw, NULL, networking_thread, NULL);
 
-  networking_thread();
-  
-  //pthread_join(tcl_interpreter, NULL);
+  struct timespec last_frame_time;
+  clock_gettime(CLOCK_MONOTONIC, &last_frame_time);
+
+  while (1) {
+    struct timespec current_time;
+    clock_gettime(CLOCK_MONOTONIC, &current_time);
+
+    float delta_time = (current_time.tv_sec - last_frame_time.tv_sec) * 1000.0f + 
+                       (float)(current_time.tv_nsec - last_frame_time.tv_nsec) / 1e6;
+    last_frame_time = current_time;
+
+    synth.delta_time_last_frame = delta_time;
+    
+    zeroSignal(g_synth->signal);
+    updateOscArray(&sineShape, g_synth, g_synth->keyOscillators);
+    handle_keys(&synth);
+  }
+
+  pthread_join(netw, NULL);
 
   return 0;
 }

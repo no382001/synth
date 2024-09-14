@@ -1,7 +1,9 @@
 #pragma once
 #include "oscillator.h"
 
-#define MAX_UI_OSCILLATORS 32
+#define SAMPLE_RATE 44100
+#define NUM_KEYS 12
+#define BASE_SEMITONE 0 // A4 = 440 Hz
 
 typedef struct Synth {
   OscillatorArray keyOscillators;

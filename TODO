@@ -12,7 +12,6 @@ CAN-DO-NOW
 
 INTERGRATION:
 - tk can display and modify adsr
-- tk can display waveform
-
+- tk can display waveforms
+- audio doesnt work
 - make tk code into packages
-
