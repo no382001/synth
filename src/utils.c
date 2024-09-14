@@ -16,6 +16,7 @@ static char *log_lvl_to_str(LogLevel l) {
   case DEBUG:
     return "[DEBUG] ";
   }
+  return "";
 }
 
 void log_message_impl(LogLevel level, const char *file, int line,

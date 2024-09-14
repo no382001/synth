@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
+#include <pthread.h>
 
 #include "synth.h"
 #include "utils.h"
@@ -8,6 +9,9 @@
 
 #define MINIAUDIO_IMPLEMENTATION
 #include "miniaudio.h"
+
+#include "tk.h"
+#include "tcl.h"
 
 ADSR defaultEnvelope = {.attack_time = ENVELOPE_DEFAULT_ATTACK_TIME,
                         .decay_time = ENVELOPE_DEFAULT_DECAY_TIME,
@@ -71,19 +75,16 @@ void audio_cb(ma_device *pDevice, void *pOutput, const void *pInput,
   float *out = (float *)pOutput;
 
   zeroSignal(g_synth->signal);
-  updateOscArray(&sineShape, &g_synth, g_synth->keyOscillators);
+  updateOscArray(&sineShape, g_synth, g_synth->keyOscillators);
 
   for (ma_uint32 i = 0; i < frameCount; i++) {
     out[i] = g_synth->signal[i];
   }
 }
 
-int main() {
-  load_config();
-
+void init_audio(ma_device* device){
   ma_result result;
   ma_device_config config;
-  ma_device device;
 
   config = ma_device_config_init(ma_device_type_playback);
   config.playback.format = ma_format_f32;
@@ -91,11 +92,44 @@ int main() {
   config.sampleRate = SAMPLE_RATE;
   config.dataCallback = audio_cb;
 
-  result = ma_device_init(NULL, &config, &device);
+  result = ma_device_init(NULL, &config, device);
   if (result != MA_SUCCESS) {
     printf("failed to initialize playback device.\n");
-    return -1;
+    exit(1);
   }
+
+}
+
+void tcl_thread(void) {
+  Tcl_Interp *interp = Tcl_CreateInterp();
+
+  if (Tcl_Init(interp) == TCL_ERROR || Tk_Init(interp) == TCL_ERROR) {
+    fprintf(stderr, "tcl/tk initialization failed: %s\n",
+            Tcl_GetStringResult(interp));
+    exit(1);
+  }
+
+  if (Tcl_EvalFile(interp, "tcl/gui.tcl") != TCL_OK) {
+    const char *error_message = Tcl_GetStringResult(interp);
+    const char *stack_trace = Tcl_GetVar(interp, "errorInfo", TCL_GLOBAL_ONLY);
+
+    fprintf(stderr, "%s\n", error_message);
+    fprintf(stderr, "%s\n", stack_trace);
+
+    exit(1);
+  }
+
+  Tk_MainLoop();
+
+  Tcl_DeleteInterp(interp);
+}
+
+int main() {
+  load_config();
+
+  ma_device device;
+  init_audio(&device);
+
   Oscillator keyOscillators[NUM_KEYS] = {0};
   float signal[STREAM_BUFFER_SIZE] = {0};
   Synth synth = {.keyOscillators = {.osc = keyOscillators, .count = 0},
@@ -109,9 +143,13 @@ int main() {
     o->envelope = defaultEnvelope;
   }
 
+  pthread_t tcl_interpreter;
+  pthread_create(&tcl_interpreter, NULL, tcl_thread, NULL);
+
   while (1) {
-  
+    pthread_join(tcl_interpreter, NULL);
   }
+
 
   return 0;
 }
