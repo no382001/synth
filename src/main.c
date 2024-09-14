@@ -85,6 +85,7 @@ void init_audio(ma_device *device) {
   ma_device_config config;
 
   config = ma_device_config_init(ma_device_type_playback);
+  config.periodSizeInFrames = STREAM_BUFFER_SIZE;
   config.playback.format = ma_format_f32;
   config.playback.channels = 1;
   config.sampleRate = SAMPLE_RATE;
