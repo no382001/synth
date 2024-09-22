@@ -25,6 +25,6 @@ target_include_directories(tinysynth PRIVATE
     3rdparty
 )
 
-target_link_libraries(tinysynth m ao tcl tk)
+target_link_libraries(tinysynth m ao tcl tk portaudio)
 
 target_compile_options(tinysynth PRIVATE -Wall -Wextra -pedantic -g)

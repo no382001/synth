@@ -3,21 +3,27 @@
 #include "synth.h"
 #include "utils.h"
 #include <stdatomic.h>
-#include <stdbool.h>
 
 static char keyMappings[NUM_KEYS] = {'a', 's', 'd', 'f', 'g', 'h',
-                               'j', 'k', 'l', ';', '\''};
+                                     'j', 'k', 'l', ';', '\''};
 static int semitoneOffsets[NUM_KEYS] = {-9, -7, -5, -4, -2, 0,
                                         2,  3,  5,  7,  8,  10};
-static atomic_bool wasKeyHeld[NUM_KEYS] = {false};
+static key_state_t keyStates[NUM_KEYS] = {};
 
-static command_map cmd_map[] = {
+static key_state_update(key_state_t *ks, bool pressed) {
+  if (ks->val != pressed) {
+    ks->val = pressed;
+    ks->change = true;
+  }
+}
+
+static command_map_t cmd_map[] = {
     {"set", key_pressed}, {"res", key_released}, {NULL, NULL}};
 
 void set_key_pressed(char key, bool pressed) {
   for (int i = 0; i < NUM_KEYS; ++i) {
     if (keyMappings[i] == key) {
-      wasKeyHeld[i] = pressed;
+      key_state_update(&keyStates[i], pressed);
       return;
     }
   }
@@ -53,19 +59,25 @@ command_fn find_function_by_command(const char *command) {
 void handle_keys(Synth *synth) {
   for (int i = 0; i < NUM_KEYS; i++) {
     Oscillator *osc = &synth->keyOscillators.osc[i];
+    key_state_t *ks = &keyStates[i];
 
-    if (wasKeyHeld[i]) { // key was just pressed
-      float freq = getFrequencyForSemitone(BASE_SEMITONE + semitoneOffsets[i]);
-      if (osc->envelope.state == OFF) { // start attack
-        osc->freq = freq;
-        osc->amplitude = 0.5f;
-        osc->shape_parameter_0 = 1.0f;
+    if (ks->val && ks->change &&
+        osc->envelope.state == OFF) { // key was just pressed, start attack
+      osc->freq = getFrequencyForSemitone(BASE_SEMITONE + semitoneOffsets[i]);;
+      osc->amplitude = 0.5f;
+      osc->shape_parameter_0 = 1.0f;
+      osc->envelope.state = ATTACK;
+    }
 
-        osc->envelope.state = ATTACK;
-      }
-    } else if (wasKeyHeld[i] && osc->envelope.state > SUSTAIN) {
+    if (ks->val && !ks->change && osc->envelope.state >= SUSTAIN) {
       osc->envelope.state = SUSTAIN; // reset state
       osc->envelope.sustain_time_elapsed = 0.0f;
     }
+
+    if (!ks->val && ks->change) { // key was just released
+      // state machine will handle the rest
+    }
+
+    ks->change = false;
   }
 }

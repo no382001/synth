@@ -11,8 +11,7 @@
 #include "utils.h"
 #include "yaml.h"
 
-#define MINIAUDIO_IMPLEMENTATION
-#include "miniaudio.h"
+#include "portaudio.h"
 
 #include "tcl.h"
 #include "tk.h"
@@ -64,40 +63,6 @@ void load_config() {
   config = NULL;
 }
 
-Synth *g_synth = NULL;
-
-void audio_cb(ma_device *pDevice, void *pOutput, const void *pInput,
-              ma_uint32 frameCount) {
-  (void)pDevice;
-  (void)pInput;
-  if (!g_synth)
-    return;
-
-  float *out = (float *)pOutput;
-
-  for (ma_uint32 i = 0; i < frameCount; i++) {
-    out[i] = g_synth->signal[i];
-  }
-}
-
-void init_audio(ma_device *device) {
-  ma_result result;
-  ma_device_config config;
-
-  config = ma_device_config_init(ma_device_type_playback);
-  config.periodSizeInFrames = STREAM_BUFFER_SIZE;
-  config.playback.format = ma_format_f32;
-  config.playback.channels = 1;
-  config.sampleRate = SAMPLE_RATE;
-  config.dataCallback = audio_cb;
-
-  result = ma_device_init(NULL, &config, device);
-  if (result != MA_SUCCESS) {
-    log_message(ERROR, "failed to initialize playback device.");
-    exit(1);
-  }
-}
-
 void tcl_thread(void) {
   Tcl_Interp *interp = Tcl_CreateInterp();
 
@@ -122,14 +87,28 @@ void tcl_thread(void) {
   Tcl_DeleteInterp(interp);
 }
 
+Synth *g_synth = NULL;
+
 void networking_thread(void);
 
 int main() {
   load_config();
 
-  ma_device device;
-  init_audio(&device);
-  ma_device_start(&device);
+  PaStream *stream;
+  PaError err;
+
+  err = Pa_Initialize();
+  if (err != paNoError)
+    return -1;
+
+  err = Pa_OpenDefaultStream(&stream, 0, 1, paFloat32, SAMPLE_RATE,
+                             STREAM_BUFFER_SIZE, NULL, NULL);
+  if (err != paNoError)
+    return -1;
+
+  err = Pa_StartStream(stream);
+  if (err != paNoError)
+    return -1;
 
   Oscillator keyOscillators[NUM_KEYS] = {0};
   float signal[STREAM_BUFFER_SIZE] = {0};
@@ -151,18 +130,20 @@ int main() {
   clock_gettime(CLOCK_MONOTONIC, &last_frame_time);
 
   while (1) {
+    zeroSignal(g_synth->signal);
+    updateOscArray(&sineShape, g_synth, g_synth->keyOscillators);
+    handle_keys(g_synth);
+    Pa_WriteStream(stream, g_synth->signal, STREAM_BUFFER_SIZE);
+    
     struct timespec current_time;
     clock_gettime(CLOCK_MONOTONIC, &current_time);
 
-    float delta_time = (current_time.tv_sec - last_frame_time.tv_sec) * 1000.0f + 
-                       (float)(current_time.tv_nsec - last_frame_time.tv_nsec) / 1e6;
+    float delta_time =
+        (current_time.tv_sec - last_frame_time.tv_sec) * 1000.0f +
+        (float)(current_time.tv_nsec - last_frame_time.tv_nsec) / 1e6;
     last_frame_time = current_time;
 
     synth.delta_time_last_frame = delta_time;
-    
-    zeroSignal(g_synth->signal);
-    updateOscArray(&sineShape, g_synth, g_synth->keyOscillators);
-    handle_keys(&synth);
   }
 
   pthread_join(netw, NULL);

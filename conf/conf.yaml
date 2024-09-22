@@ -1,6 +1,6 @@
 envelope:
-  attack_time: 15.0 # in mseconds?
-  decay_time: 1.0
+  attack_time: 150000.0 # in mseconds?
+  decay_time: 150000.0
   sustain_level: 0.7
-  sustain_time: 50.0
-  release_time: 30.0
+  sustain_time: 500000.0
+  release_time: 300000.0
