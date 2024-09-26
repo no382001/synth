@@ -1,17 +1,17 @@
 FAR-FETCHED
 - make an FFI for tinyscm to connect to
 - more audio viz things
-- sequencing
 
-CAN-DO-NOW
-- documentation
+TK:
+- tk can display and modify adsr
+- tk can display waveforms
+- make tk code into packages
+- make comm. interface more robust (no need rn)
+
+
+
+AUDIO:
 - improve signal rendering
 - load other sounds
 - LFO and freq modulation
-- logging isnt consistent
-
-INTERGRATION:
-- tk can display and modify adsr
-- tk can display waveforms
-- audio doesnt work
-- make tk code into packages
+- sequencing

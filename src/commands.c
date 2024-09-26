@@ -17,6 +17,7 @@ static key_state_update(key_state_t *ks, bool pressed) {
   }
 }
 
+// refactor this so it can handle multiple arguments if needed
 static command_map_t cmd_map[] = {
     {"set", key_pressed}, {"res", key_released}, {NULL, NULL}};
 
@@ -31,7 +32,7 @@ void set_key_pressed(char key, bool pressed) {
 
 void key_pressed(char *userdata) {
   if (strlen(userdata) != 1) {
-    log_message(ERROR, "invalid command tail");
+    log_message(ERROR, "invalid command tail: %s",userdata);
     return;
   }
 
@@ -40,7 +41,7 @@ void key_pressed(char *userdata) {
 
 void key_released(char *userdata) {
   if (strlen(userdata) != 1) {
-    log_message(ERROR, "invalid command tail");
+    log_message(ERROR, "invalid command tail: %s",userdata);
     return;
   }
 

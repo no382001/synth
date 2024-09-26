@@ -120,7 +120,7 @@ namespace eval networking {
         }
 
         set data [read $sock]
-        ${log}::debug "Received data: $data"
+        ${log}::debug "received data: $data"
     }
 
     # ----------------------------
