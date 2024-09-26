@@ -134,7 +134,7 @@ int main() {
     updateOscArray(&sineShape, g_synth, g_synth->keyOscillators);
     handle_keys(g_synth);
     Pa_WriteStream(stream, g_synth->signal, STREAM_BUFFER_SIZE);
-    
+
     struct timespec current_time;
     clock_gettime(CLOCK_MONOTONIC, &current_time);
 
@@ -144,9 +144,6 @@ int main() {
     last_frame_time = current_time;
 
     synth.delta_time_last_frame = delta_time;
-
-    // take the whole signal and put it on some buffer for the networking to send
-    // this is like 23ms give or take, so networking should be faster right? he doesnt do that much
   }
 
   pthread_join(netw, NULL);

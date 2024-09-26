@@ -1,6 +1,6 @@
 #include "utils.h"
 #include <time.h>
-static LogLevel current_log_level = DEBUG;
+static LogLevel current_log_level = INFO;
 
 static char *log_lvl_to_str(LogLevel l) {
   switch (l) {

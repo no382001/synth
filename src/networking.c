@@ -1,8 +1,47 @@
-#include "networking.h"
+#include <signal.h>
+#include <unistd.h>
+
 #include "commands.h"
 #include "hash.h"
-#include "utils.h"
 #include "networking.h"
+#include "utils.h"
+
+static network_cfg_t *global_network_cfg;
+extern struct lfq_ctx *g_lfq_ctx;
+
+static void signal_handler(int signum) {
+  if (signum == SIGINT || signum == SIGTERM) {
+    log_message(INFO, "received termination signal, shutting down...");
+    if (global_network_cfg && global_network_cfg->server_fd > 0) {
+      close(global_network_cfg->server_fd);
+    }
+    if (global_network_cfg && global_network_cfg->client_fd > 0) {
+      close(global_network_cfg->client_fd);
+    }
+    exit(0);
+  }
+}
+
+static void setup_signal_handling(network_cfg_t *n) {
+  global_network_cfg = n;
+
+  struct sigaction sa;
+  sa.sa_handler = signal_handler;
+  sa.sa_flags = 0;
+  sigemptyset(&sa.sa_mask);
+
+  if (sigaction(SIGINT, &sa, NULL) < 0) {
+    log_message(ERROR, "sigaction for SIGINT failed");
+    exit(1);
+  }
+
+  if (sigaction(SIGTERM, &sa, NULL) < 0) {
+    log_message(ERROR, "sigaction for SIGTERM failed");
+    exit(1);
+  }
+
+  log_message(INFO, "signal handlers set up successfully");
+}
 
 static void set_nonblocking(int sockfd) {
   int flags = fcntl(sockfd, F_GETFL, 0);
@@ -134,27 +173,37 @@ static void handle_data(network_cfg_t *n) {
   }
 }
 
-extern Synth* g_synth;
+extern Synth *g_synth;
 
 static void send_data(network_cfg_t *n) {
   if (n->client_fd > 0) {
-    size_t signal_size_in_bytes = g_synth->signal_length * sizeof(float);
+
+    static int8_t out_buffer[DOWNSAMPLE_SIZE];
+    static size_t downsampled_size_in_bytes = DOWNSAMPLE_SIZE * sizeof(int8_t);
+
+    for (size_t i = 0, j = 0; i < DOWNSAMPLE_SIZE; ++i, j += DOWNSAMPLE_FACTOR) {
+      float sample = g_synth->signal[j];
+
+      int8_t resampled_value = (int8_t)(sample * 127);
+      out_buffer[i] = resampled_value;
+    }
+
     ssize_t bytes_sent =
-        send(n->client_fd, (void *)g_synth->signal, signal_size_in_bytes, 0);
+        send(n->client_fd, (void *)out_buffer, downsampled_size_in_bytes, 0);
 
     if (bytes_sent < 0) {
-      log_message(ERROR, "error sending data to the client");
+      log_message(ERROR, "error sending");
       close(n->client_fd);
       n->client_fd = -1;
     } else {
-      log_message(DEBUG, "sent %ld bytes to the client", bytes_sent);
+      log_message(DEBUG, "sent %ld bytes", bytes_sent);
     }
   }
 }
 
 void networking_thread(void) {
   network_cfg_t n = {NULL};
-
+  setup_signal_handling(&n);
   init_networking(&n);
 
   while (1) {

@@ -10,7 +10,7 @@ static int semitoneOffsets[NUM_KEYS] = {-9, -7, -5, -4, -2, 0,
                                         2,  3,  5,  7,  8,  10};
 static key_state_t keyStates[NUM_KEYS] = {};
 
-static key_state_update(key_state_t *ks, bool pressed) {
+static void key_state_update(key_state_t *ks, bool pressed) {
   if (ks->val != pressed) {
     ks->val = pressed;
     ks->change = true;

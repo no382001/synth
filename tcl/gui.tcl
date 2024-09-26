@@ -143,29 +143,63 @@ bind .c <ButtonRelease-1> {stop_drag}
 # ---------------
 # waveform viz
 # ---------------
-set phaseShift 0
 
-proc draw_waveform {phaseShift} {
+proc draw_waveform {} {
     global waveform_x1 waveform_y1 waveform_x2 waveform_y2 .c
+    global signal_data
+    global log
 
     set previousX $waveform_x1
     set previousY [expr {($waveform_y1 + $waveform_y2) / 2}]
 
     .c delete waveform_elements
 
-    for {set x $waveform_x1} {$x <= $waveform_x2} {incr x 10} {
-        set y [expr {($waveform_y1 + $waveform_y2) / 2 + 50 * sin(($x - $waveform_x1 + $phaseShift) / 100.0 * 2 * 3.14159)}]
+    set signal_length [llength $signal_data]
+
+    if {$signal_length == 0} {
+        return
+    }
+
+    set step [expr {double($waveform_x2 - $waveform_x1) / double($signal_length)}]
+
+    if {$step <= 0} {
+        return
+    }
+
+    for {set i 0} {$i < $signal_length} {incr i} {
+        set x [expr {$waveform_x1 + $i * $step}]
+
+        set y_value [lindex $signal_data $i]
+
+        set y_value [expr {($y_value / 127.0) * 3}]
+
+        set prev_value $y_value
+        set next_value $y_value
+
+        if {$i > 0} {
+            set prev_value [lindex $signal_data [expr {$i - 1}]]
+            set prev_value [expr {($prev_value / 127.0) * 3}]
+        }
+        if {$i < $signal_length - 1} {
+            set next_value [lindex $signal_data [expr {$i + 1}]]
+            set next_value [expr {($next_value / 127.0) * 3}]
+        }
+
+        set y_value [expr {($prev_value + $y_value + $next_value) / 3.0}]
+
+        if {$y_value < -3} { set y_value -3 }
+        if {$y_value > 3} { set y_value 3 }
+
+        set y [expr {($waveform_y1 + $waveform_y2) / 2 - 15 * $y_value}]
+
         .c create line $previousX $previousY $x $y -fill black -tags waveform_elements
+
         set previousX $x
         set previousY $y
     }
 }
 
+
 proc update_waveform {} {
-    global phaseShift
-    incr phaseShift 5
-
-    draw_waveform $phaseShift
-
-    after 25 update_waveform
+    draw_waveform
 }

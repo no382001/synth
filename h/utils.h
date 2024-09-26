@@ -6,6 +6,9 @@
 #include <string.h>
 #include <unistd.h>
 
+#define DOWNSAMPLE_FACTOR 8
+#define DOWNSAMPLE_SIZE (STREAM_BUFFER_SIZE / DOWNSAMPLE_FACTOR)
+
 typedef enum {
   ERROR,
   INFO,
@@ -38,7 +41,12 @@ LogLevel get_current_log_level();
 // SOURCE_PATH_SIZE defined in cmake
 #define __RELATIVE_FILE__ (__FILE__ + SOURCE_PATH_SIZE)
 
-#define log_message(level, message, ...)                                       \
-  log_message_impl(level, __RELATIVE_FILE__, __LINE__, message, ##__VA_ARGS__)
+#define LOGGING
 
+#ifdef LOGGING
+  #define log_message(level, message, ...)                                       \
+    log_message_impl(level, __RELATIVE_FILE__, __LINE__, message, ##__VA_ARGS__)
+#else
+  #define log_message(level, message, ...)
+#endif
 //

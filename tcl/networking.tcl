@@ -1,5 +1,5 @@
 namespace eval networking {
-    
+
     variable server_address "localhost"
     variable server_port 5000
     variable sock ""
@@ -36,7 +36,7 @@ namespace eval networking {
 
         if {$sock ne ""} {
             fconfigure $sock -blocking 0
-            ${log}::notice "Connection successful, socket configured as non-blocking."
+            ${log}::notice "connection successful, socket configured as non-blocking."
         } else {
             ${log}::error "Failed to connect."
         }
@@ -52,7 +52,7 @@ namespace eval networking {
         global log
         if {$sock ne ""} {
             set msg "$action $key"
-            ${log}::notice "sent: $msg"
+            #${log}::notice "sent: $msg"
             puts -nonewline $sock $msg
             flush $sock
         } else {
@@ -115,13 +115,25 @@ namespace eval networking {
         global log
         if {[eof $sock]} {
             close $sock
-            ${log}::notice "Connection closed by server."
+            ${log}::notice "connection closed by server."
             networking::connect
         }
 
-        set data [read $sock]
-        ${log}::debug "received data: $data"
+        global signal_data
+        set signal_data {}
+
+        set data [read $sock 256]
+
+        set bytes_read [string length $data]
+        
+        for {set i 0} {$i < $bytes_read} {incr i} {
+            binary scan [string index $data $i] c int8_value
+            lappend signal_data $int8_value
+        }
+
+        update_waveform
     }
+
 
     # ----------------------------
     # bindings
