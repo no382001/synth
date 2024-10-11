@@ -106,8 +106,8 @@ static void accept_data(network_cfg_t *n) {
 
   // set timeout to 1 second
   struct timeval timeout;
-  timeout.tv_sec = 1;
-  timeout.tv_usec = 0;
+  timeout.tv_sec = 0;
+  timeout.tv_usec = 10000; // 10 milliseconds
 
   // wait for an activity on one of the sockets
   int activity = select(n->max_sd + 1, &n->readfds, NULL, NULL, &timeout);
